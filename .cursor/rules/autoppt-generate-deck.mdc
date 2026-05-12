@@ -1,0 +1,14 @@
+---
+description: 修改 autoppt 与演示文稿生成相关代码后必须自动重新生成 pptx
+alwaysApply: true
+---
+
+# 生成演示文稿
+
+在本仓库中**只要改动了会影响 `FundDeckGenerator` / `ChartSlideFiller` / `ProductSlideFiller` 或其它生成逻辑的 Java 或模板相关代码**，在结束该轮修改前**必须由助手自行执行**（勿只告诉用户去跑）：
+
+```powershell
+Set-Location d:\IdeaProjects\autoppt; mvn -q compile exec:java
+```
+
+默认输出：`target/generated-fund-deck-out.pptx`。执行后在回复里写明该文件的绝对路径与已生成，用户不应被要求手动运行上述命令。
