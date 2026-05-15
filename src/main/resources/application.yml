@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+ppt:
+  refresh:
+    rules-dir: classpath:rules
+    slide-index-base: 0
+    llm:
+      # 阿里云 DashScope OpenAI 兼容：https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
+      enabled: true
+      base-url: ${LLM_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      # 优先读灵积官方变量 DASHSCOPE_API_KEY；也可在系统里配 LLM_API_KEY
+      api-key: ${DASHSCOPE_API_KEY:${LLM_API_KEY:}}
+      model-name: ${LLM_MODEL:qwen-plus}
+      timeout-seconds: 120
+
+resilience4j:
+  retry:
+    instances:
+      llmChat:
+        max-attempts: 3
+        wait-duration: 1s
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+      toolHttp:
+        max-attempts: 3
+        wait-duration: 500ms

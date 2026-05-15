@@ -1,0 +1,11 @@
+# 段 2 / 段 3 白名单；deckType = segment2 + "-" + segment3
+allowedSegment2:
+  - "混合固收+"
+  - "偏债混"
+allowedSegment3:
+  - "M1"
+
+# deckType -> 规则文件名（位于 rules/decks/ 下）
+deckRules:
+  "混合固收+-M1": "混合固收+-M1.yaml"
+  "偏债混-M1": "偏债混-M1.yaml"

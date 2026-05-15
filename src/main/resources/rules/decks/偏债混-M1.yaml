@@ -1,0 +1,94 @@
+deckType: "偏债混-M1"
+
+version: "1"
+
+productNameResolution:
+  strategy: SEGMENT2_PREFIX_TITLE
+  slideIndex: 0
+
+timeRules:
+
+  - latestQuarter
+
+  - latestDate
+
+
+
+tasks:
+
+  - id: title
+
+    type: text
+
+    slideIndex: 0
+
+    anchorText: "偏债混-中欧瑾添"
+
+    mode: replace_all
+
+    intent: "更新标题行，包含产品名称与最新季度"
+
+
+
+  - id: fund_meta
+
+    type: text
+
+    slideIndex: 0
+
+    anchorText: "A:013998"
+
+    mode: after_anchor
+
+    intent: "更新基金代码、成立日、基金经理、最新规模等基本信息"
+
+
+
+  - id: strategy
+
+    type: text
+
+    slideIndex: 0
+
+    anchorText: "投资范围及策略"
+
+    mode: after_anchor
+
+    intent: "更新投资范围及策略正文"
+
+
+
+  - id: performance_table
+
+    type: table
+
+    slideIndex: 0
+
+    tableOrdinal: 1
+
+    intent: "更新业绩指标表全部单元格，行列数与模板一致"
+
+
+
+  - id: allocation_chart
+
+    type: chart
+
+    slideIndex: 0
+
+    chartOrdinal: 1
+
+    intent: "更新大类资产配置分组柱状图：四类资产为分类轴，四个季度为系列，系列数与点数与模板一致"
+
+
+
+  - id: nav_chart
+
+    type: chart
+
+    slideIndex: 0
+
+    chartOrdinal: 2
+
+    intent: "更新累计收益率折线图：两条线分别为本基金与业绩基准，日期点数与模板一致"
+

@@ -1,0 +1,30 @@
+deckType: "混合固收+-M1"
+version: "1"
+
+productNameResolution:
+  strategy: EMPTY_OK
+
+timeRules:
+  - latestQuarter
+  - latestDate
+
+tasks:
+  - id: sample_title
+    type: text
+    slideIndex: 0
+    anchorText: "基金业绩说明"
+    mode: replace_all
+    intent: "生成一行标题，包含产品名称与最新季度说明"
+    hints: "标题应简洁，含产品名"
+
+  - id: sample_rank_table
+    type: table
+    slideIndex: 0
+    tableOrdinal: 1
+    intent: "填充收益率排名表，仅数据区，行列数与模板一致"
+
+  - id: sample_allocation_chart
+    type: chart
+    slideIndex: 0
+    chartOrdinal: 1
+    intent: "更新资产配置柱状图数据，系列数与模板一致"

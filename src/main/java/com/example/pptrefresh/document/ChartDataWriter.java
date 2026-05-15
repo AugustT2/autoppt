@@ -1,12 +1,9 @@
-package com.example.autoppt;
+package com.example.pptrefresh.document;
 
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.xslf.usermodel.XSLFChart;
-import org.apache.poi.xslf.usermodel.XSLFGraphicFrame;
-import org.apache.poi.xslf.usermodel.XSLFShape;
-import org.apache.poi.xslf.usermodel.XSLFSlide;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTAxDataSource;
@@ -25,50 +22,32 @@ import org.openxmlformats.schemas.drawingml.x2006.chart.CTStrRef;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTStrVal;
 
 import java.io.IOException;
+import java.util.List;
 
-/**
- * 通过嵌入 Excel 写数 + 重建图表 XML 中与 {@code strRef}/{@code numRef} 配套的缓存，避免 PowerPoint
- * 校验失败。
- */
-public final class ChartSlideFiller {
+/** 嵌入表 + 图表缓存写数（POI 柱状/折线图数据与 strCache/numCache 同步）。 */
+public final class ChartDataWriter {
 
-    public static final String CHART_ALLOCATION = "CHART_ALLOCATION";
-    public static final String CHART_NAV_SERIES = "CHART_NAV_SERIES";
+    private ChartDataWriter() {}
 
-    private ChartSlideFiller() {}
-
-    public static void fillCharts(XSLFSlide slide, FundCharts charts) throws IOException, InvalidFormatException {
-        writeEmbeddedChartSheet(
-                chartOf(slide, CHART_ALLOCATION),
-                charts.allocCategories(),
-                charts.allocSeriesNames(),
-                charts.allocSeriesValues());
-        writeEmbeddedChartSheet(
-                chartOf(slide, CHART_NAV_SERIES),
-                charts.navCategories(),
-                charts.navSeriesNames(),
-                charts.navSeriesValues());
+    public static void write(
+            XSLFChart chart,
+            List<String> categories,
+            List<String> seriesNames,
+            List<List<Double>> seriesValues)
+            throws IOException, InvalidFormatException {
+        String[] cats = categories.toArray(String[]::new);
+        String[] names = seriesNames.toArray(String[]::new);
+        double[][] values = new double[seriesValues.size()][];
+        for (int i = 0; i < seriesValues.size(); i++) {
+            List<Double> row = seriesValues.get(i);
+            values[i] = new double[row.size()];
+            for (int j = 0; j < row.size(); j++) {
+                values[i][j] = row.get(j);
+            }
+        }
+        writeEmbeddedChartSheet(chart, cats, names, values);
     }
 
-    private static XSLFChart chartOf(XSLFSlide slide, String shapeName) {
-        XSLFShape sh = ShapeFinder.find(slide, shapeName);
-        if (sh == null) {
-            throw new IllegalStateException("缺少图表框: " + shapeName);
-        }
-        if (!(sh instanceof XSLFGraphicFrame)) {
-            throw new IllegalStateException(shapeName + " 不是 GraphicFrame: " + sh.getClass());
-        }
-        XSLFGraphicFrame frame = (XSLFGraphicFrame) sh;
-        if (!frame.hasChart()) {
-            throw new IllegalStateException(shapeName + " 内无图表");
-        }
-        return frame.getChart();
-    }
-
-    /**
-     * 布局与模板一致：A 列分类（自第 2 行），B1/C1 为系列名，B/C 列第 2 行起为各系列数值；随后重建
-     * {@code strCache}/{@code numCache} 与单元格一致。
-     */
     private static void writeEmbeddedChartSheet(
             XSLFChart chart, String[] categories, String[] seriesNames, double[][] seriesValues)
             throws IOException, InvalidFormatException {
@@ -82,7 +61,7 @@ public final class ChartSlideFiller {
         for (int s = 0; s < numSeries; s++) {
             if (seriesValues[s].length != categories.length) {
                 throw new IllegalArgumentException(
-                        "系列 " + s + " 点数 " + seriesValues[s].length + " 与分类数 " + categories.length + " 不一致");
+                        "系列 " + s + " 点数与分类数不一致");
             }
         }
 
@@ -103,12 +82,6 @@ public final class ChartSlideFiller {
         }
 
         chart.saveWorkbook(wb);
-        /*
-         * POI 的 XDDFChart.commit() 在整包写出时会再次 saveWorkbook(this.workbook)。多图场景下
-         * 嵌入工作簿实例可能被复用，最后一次写入会覆盖各图表部件对应的 xlsx，导致「图表缓存 /
-         * 公式仍指向旧数，嵌入表已是最后一只基金」——PowerPoint 会提示修复并删内容。写盘后丢弃缓存，
-         * 让 commit 只写 chartSpace XML，避免二次把共享 workbook 刷进错误的 PackagePart。
-         */
         chart.setWorkbook(null);
         rebuildRefCaches(chart, categories, seriesNames, seriesValues);
     }
@@ -122,14 +95,16 @@ public final class ChartSlideFiller {
         for (CTBarChart bc : pa.getBarChartList()) {
             int s = 0;
             for (CTBarSer ser : bc.getSerList()) {
-                refreshSeriesCaches(ser.getTx(), ser.getCat(), ser.getVal(), categories, seriesNames[s], seriesValues[s]);
+                refreshSeriesCaches(
+                        ser.getTx(), ser.getCat(), ser.getVal(), categories, seriesNames[s], seriesValues[s]);
                 s++;
             }
         }
         for (CTLineChart lc : pa.getLineChartList()) {
             int s = 0;
             for (CTLineSer ser : lc.getSerList()) {
-                refreshSeriesCaches(ser.getTx(), ser.getCat(), ser.getVal(), categories, seriesNames[s], seriesValues[s]);
+                refreshSeriesCaches(
+                        ser.getTx(), ser.getCat(), ser.getVal(), categories, seriesNames[s], seriesValues[s]);
                 s++;
             }
         }
