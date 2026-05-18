@@ -100,7 +100,7 @@ public class RefreshOrchestrator {
 
             try (InputStream in = Files.newInputStream(workCopy);
                     XMLSlideShow ppt = new XMLSlideShow(in)) {
-                resolved = productNameResolver.resolve(ppt, parsed, rules);
+                resolved = productNameResolver.resolve(ppt, rules);
                 log.info(
                         "Resolved product displayName={} fundCode={}",
                         resolved.displayName(),

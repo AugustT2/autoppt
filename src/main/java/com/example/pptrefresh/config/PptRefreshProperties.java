@@ -29,12 +29,9 @@ public class PptRefreshProperties {
         return llm;
     }
 
+    /** 是否调用 LangChain4j {@link dev.langchain4j.model.chat.ChatModel}；模型参数见 {@code langchain4j.open-ai.*}。 */
     public static class Llm {
         private boolean enabled;
-        private String baseUrl = "http://localhost:8081/v1";
-        private String apiKey = "placeholder";
-        private String modelName = "gpt-4o-mini";
-        private int timeoutSeconds = 120;
 
         public boolean isEnabled() {
             return enabled;
@@ -42,38 +39,6 @@ public class PptRefreshProperties {
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
-        }
-
-        public String getBaseUrl() {
-            return baseUrl;
-        }
-
-        public void setBaseUrl(String baseUrl) {
-            this.baseUrl = baseUrl;
-        }
-
-        public String getApiKey() {
-            return apiKey;
-        }
-
-        public void setApiKey(String apiKey) {
-            this.apiKey = apiKey;
-        }
-
-        public String getModelName() {
-            return modelName;
-        }
-
-        public void setModelName(String modelName) {
-            this.modelName = modelName;
-        }
-
-        public int getTimeoutSeconds() {
-            return timeoutSeconds;
-        }
-
-        public void setTimeoutSeconds(int timeoutSeconds) {
-            this.timeoutSeconds = timeoutSeconds;
         }
     }
 }

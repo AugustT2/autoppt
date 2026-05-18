@@ -63,8 +63,6 @@ public class RulesValidator {
             throw schemaError(e.getMessage());
         }
         switch (st) {
-            case SEGMENT2_PREFIX_TITLE:
-                break;
             case ANCHOR_REGEX:
                 if (!StringUtils.hasText(cfg.getAnchorText())) {
                     throw schemaError("ANCHOR_REGEX 需要 anchorText");

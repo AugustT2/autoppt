@@ -1,0 +1,6 @@
+# 本地联调 POI 写回、不调外网 LLM 时使用：
+#   spring.profiles.active=stub-llm
+ppt:
+  refresh:
+    llm:
+      enabled: false

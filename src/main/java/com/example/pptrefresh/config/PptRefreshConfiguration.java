@@ -1,26 +1,24 @@
 package com.example.pptrefresh.config;
 
-import com.example.pptrefresh.funds.HardcodedFundCodeLookup;
-import com.example.pptrefresh.llm.HttpOpenAiLlmTaskRunner;
+import com.example.pptrefresh.llm.LangChain4jLlmTaskRunner;
 import com.example.pptrefresh.llm.LlmTaskRunner;
 import com.example.pptrefresh.llm.StubLlmTaskRunner;
 import com.example.pptrefresh.llm.WritePayloadParser;
 import com.example.pptrefresh.tools.DemoDataTools;
 import com.example.pptrefresh.tools.DemoToolExecutor;
+import dev.langchain4j.model.chat.ChatModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.client.RestTemplate;
 
+/**
+ * LLM：由 {@code langchain4j-open-ai-spring-boot-starter} 根据 {@code langchain4j.open-ai.*} 自动注册
+ * {@link ChatModel}；本类只负责在 {@code ppt.refresh.llm.enabled} 下选择 Stub 或 LangChain4j 实现。
+ */
 @Configuration
 @EnableConfigurationProperties(PptRefreshProperties.class)
 public class PptRefreshConfiguration {
-
-    @Bean
-    DemoDataTools demoDataTools(HardcodedFundCodeLookup fundCodeLookup) {
-        return new DemoDataTools(fundCodeLookup);
-    }
 
     @Bean
     DemoToolExecutor demoToolExecutor(DemoDataTools demoDataTools) {
@@ -28,23 +26,19 @@ public class PptRefreshConfiguration {
     }
 
     @Bean
-    RestTemplate llmRestTemplate(RestTemplateBuilder builder, PptRefreshProperties properties) {
-        return builder
-                .setConnectTimeout(
-                        java.time.Duration.ofSeconds(properties.getLlm().getTimeoutSeconds()))
-                .setReadTimeout(java.time.Duration.ofSeconds(properties.getLlm().getTimeoutSeconds()))
-                .build();
-    }
-
-    @Bean
     LlmTaskRunner llmTaskRunner(
             PptRefreshProperties properties,
             WritePayloadParser writePayloadParser,
+            DemoDataTools demoDataTools,
             DemoToolExecutor demoToolExecutor,
-            RestTemplate llmRestTemplate) {
+            @Autowired(required = false) ChatModel chatModel) {
         if (properties.getLlm().isEnabled()) {
-            return new HttpOpenAiLlmTaskRunner(
-                    properties, writePayloadParser, demoToolExecutor, llmRestTemplate);
+            if (chatModel == null) {
+                throw new IllegalStateException(
+                        "ppt.refresh.llm.enabled=true 但未创建 ChatModel：请配置 langchain4j.open-ai.chat-model.api-key");
+            }
+            return new LangChain4jLlmTaskRunner(
+                    chatModel, writePayloadParser, demoDataTools, demoToolExecutor);
         }
         return new StubLlmTaskRunner();
     }

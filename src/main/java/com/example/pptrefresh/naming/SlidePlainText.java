@@ -30,18 +30,4 @@ public final class SlidePlainText {
                 });
         return sb.toString();
     }
-
-    public static String collectSlides(XMLSlideShow ppt, int slideIndexBase, Iterable<Integer> slideIndexes) {
-        StringBuilder sb = new StringBuilder();
-        for (Integer s : slideIndexes) {
-            String chunk = collectSlide(ppt, slideIndexBase, s);
-            if (!chunk.isEmpty()) {
-                if (sb.length() > 0) {
-                    sb.append("\n---\n");
-                }
-                sb.append(chunk);
-            }
-        }
-        return sb.toString();
-    }
 }

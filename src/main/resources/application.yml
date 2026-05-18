@@ -1,18 +1,25 @@
 server:
   port: 8080
 
+# LangChain4j Spring Boot Starter（OpenAI 兼容，DashScope 等同理配置 base-url）
+# 文档：https://docs.langchain4j.dev/tutorials/spring-boot-integration/
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: ${LLM_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      api-key: ${DASHSCOPE_API_KEY:${LLM_API_KEY:}}
+      model-name: ${LLM_MODEL:qwen-plus}
+      timeout: 120s
+      log-requests: false
+      log-responses: false
+
 ppt:
   refresh:
     rules-dir: classpath:rules
     slide-index-base: 0
     llm:
-      # 阿里云 DashScope OpenAI 兼容：https://help.aliyun.com/zh/model-studio/developer-reference/use-qwen-by-calling-api
+      # false 时走 StubLlmTaskRunner，不调用 ChatModel（与是否配置 api-key 无关）
       enabled: true
-      base-url: ${LLM_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
-      # 优先读灵积官方变量 DASHSCOPE_API_KEY；也可在系统里配 LLM_API_KEY
-      api-key: ${DASHSCOPE_API_KEY:${LLM_API_KEY:}}
-      model-name: ${LLM_MODEL:qwen-plus}
-      timeout-seconds: 120
 
 resilience4j:
   retry:

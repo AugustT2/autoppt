@@ -3,22 +3,15 @@ package com.example.pptrefresh.llm;
 import com.example.pptrefresh.config.PptRefreshProperties;
 import com.example.pptrefresh.exception.FailureStage;
 import com.example.pptrefresh.exception.RefreshException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
- * 从若干页纯文本推断一行基金/产品展示名（无 tools）。仅在规则策略 {@code LLM_EXTRACT} 且 llm.enabled 时使用。
+ * 从指定页纯文本推断一行基金/产品展示名（无 tools）。仅在规则策略 {@code LLM_EXTRACT} 且 llm.enabled 时使用。
  */
 @Component
 public class LlmProductNameExtractor {
@@ -26,16 +19,17 @@ public class LlmProductNameExtractor {
     private static final int MAX_CHARS = 6000;
 
     private final PptRefreshProperties properties;
-    private final RestTemplate restTemplate;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ChatModel chatModel;
 
-    public LlmProductNameExtractor(PptRefreshProperties properties, RestTemplate llmRestTemplate) {
+    public LlmProductNameExtractor(
+            PptRefreshProperties properties,
+            @Autowired(required = false) ChatModel chatModel) {
         this.properties = properties;
-        this.restTemplate = llmRestTemplate;
+        this.chatModel = chatModel;
     }
 
     public String extractLine(String slidePlainText, String hint) {
-        if (!properties.getLlm().isEnabled()) {
+        if (!properties.getLlm().isEnabled() || chatModel == null) {
             throw new RefreshException(
                     FailureStage.PRODUCT_NAME_RESOLVE,
                     "LLM_DISABLED",
@@ -52,31 +46,12 @@ public class LlmProductNameExtractor {
                         + (hint != null && !hint.isBlank() ? "提示：" + hint + "\n\n" : "")
                         + bodyText;
         try {
-            String url = normalizeBaseUrl(properties.getLlm().getBaseUrl()) + "/chat/completions";
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(properties.getLlm().getApiKey());
-
-            List<Map<String, Object>> messages = new ArrayList<>();
-            messages.add(
-                    Map.of(
-                            "role",
-                            "system",
-                            "content",
-                            "你只输出一行中文或中英混合的短名称，不要其它任何字符。"));
-            messages.add(Map.of("role", "user", "content", user));
-
-            Map<String, Object> body = new LinkedHashMap<>();
-            body.put("model", properties.getLlm().getModelName());
-            body.put("temperature", 0);
-            body.put("messages", messages);
-
-            ResponseEntity<String> response =
-                    restTemplate.postForEntity(
-                            url, new HttpEntity<>(mapper.writeValueAsString(body), headers), String.class);
-            JsonNode root = mapper.readTree(response.getBody());
-            String content = root.get("choices").get(0).get("message").path("content").asText("");
-            String line = content.trim().split("\\R", 2)[0].trim();
+            ChatResponse response =
+                    chatModel.chat(
+                            SystemMessage.from("你只输出一行中文或中英混合的短名称，不要其它任何字符。"),
+                            UserMessage.from(user));
+            String content = response.aiMessage().text();
+            String line = content == null ? "" : content.trim().split("\\R", 2)[0].trim();
             if (line.isEmpty()) {
                 throw new RefreshException(
                         FailureStage.PRODUCT_NAME_RESOLVE,
@@ -91,18 +66,10 @@ public class LlmProductNameExtractor {
         } catch (Exception e) {
             throw new RefreshException(
                     FailureStage.PRODUCT_NAME_RESOLVE,
-                    "LLM_NAME_HTTP_FAILED",
+                    "LLM_NAME_FAILED",
                     "产品名 LLM 调用失败: " + e.getMessage(),
                     null,
                     e);
         }
-    }
-
-    private static String normalizeBaseUrl(String baseUrl) {
-        String u = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        if (u.endsWith("/v1")) {
-            return u;
-        }
-        return u + "/v1";
     }
 }

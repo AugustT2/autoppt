@@ -1,6 +1,6 @@
 package com.example.pptrefresh.orchestration;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 public class RefreshJobRequest {
 

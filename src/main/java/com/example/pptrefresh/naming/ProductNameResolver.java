@@ -33,7 +33,7 @@ public class ProductNameResolver {
         this.llmProductNameExtractor = llmProductNameExtractor;
     }
 
-    public ResolvedProduct resolve(XMLSlideShow ppt, ParsedFilename parsed, DeckRules rules) {
+    public ResolvedProduct resolve(XMLSlideShow ppt, DeckRules rules) {
         ProductNameResolution cfg = rules.getProductNameResolution();
         if (cfg == null) {
             throw new RefreshException(
@@ -43,7 +43,7 @@ public class ProductNameResolver {
                     null,
                     null);
         }
-        String display = resolveDisplayName(ppt, parsed, cfg);
+        String display = resolveDisplayName(ppt, cfg);
         String code = fundCodeLookup.lookupFundCode(display);
         if (StringUtils.hasText(display) && !StringUtils.hasText(code)) {
             throw new RefreshException(
@@ -56,13 +56,9 @@ public class ProductNameResolver {
         return new ResolvedProduct(display, code != null ? code : "");
     }
 
-    private String resolveDisplayName(XMLSlideShow ppt, ParsedFilename parsed, ProductNameResolution cfg) {
+    private String resolveDisplayName(XMLSlideShow ppt, ProductNameResolution cfg) {
         int base = properties.getSlideIndexBase();
         switch (cfg.strategyEnum()) {
-            case SEGMENT2_PREFIX_TITLE:
-                int si = cfg.getSlideIndex() != null ? cfg.getSlideIndex() : 0;
-                String slideText = SlidePlainText.collectSlide(ppt, base, si);
-                return extractSegment2Title(parsed.segment2(), slideText);
             case ANCHOR_REGEX:
                 validateAnchorRegex(cfg);
                 int ai = cfg.getSlideIndex() != null ? cfg.getSlideIndex() : 0;
@@ -79,20 +75,17 @@ public class ProductNameResolver {
                 }
                 return m.group(1).trim();
             case LLM_EXTRACT:
-                List<Integer> idx = cfg.getSlideIndexes();
-                if (idx == null || idx.isEmpty()) {
-                    idx = List.of(0);
-                }
-                String joined = SlidePlainText.collectSlides(ppt, base, idx);
-                if (!StringUtils.hasText(joined)) {
+                int li = cfg.getSlideIndex() != null ? cfg.getSlideIndex() : 0;
+                String slideText = SlidePlainText.collectSlide(ppt, base, li);
+                if (!StringUtils.hasText(slideText)) {
                     throw new RefreshException(
                             FailureStage.PRODUCT_NAME_RESOLVE,
-                            "LLM_EXTRACT_EMPTY_SLIDES",
-                            "参与 LLM 的页面无文本",
+                            "LLM_EXTRACT_EMPTY_SLIDE",
+                            "指定页无文本，slideIndex=" + li,
                             null,
                             null);
                 }
-                return llmProductNameExtractor.extractLine(joined, cfg.getHint());
+                return llmProductNameExtractor.extractLine(slideText, cfg.getHint());
             case EMPTY_OK:
                 return "";
             case STATIC:
@@ -132,30 +125,6 @@ public class ProductNameResolver {
                     null,
                     null);
         }
-    }
-
-    static String extractSegment2Title(String segment2, String slideText) {
-        if (!StringUtils.hasText(segment2) || !StringUtils.hasText(slideText)) {
-            throw new RefreshException(
-                    FailureStage.PRODUCT_NAME_RESOLVE,
-                    "SEGMENT2_TITLE_EMPTY",
-                    "segment2 或页文本为空，无法解析标题前缀",
-                    null,
-                    null);
-        }
-        String prefix = segment2 + "-";
-        for (String line : slideText.split("\\R")) {
-            String t = line.trim();
-            if (t.startsWith(prefix) && t.length() > prefix.length()) {
-                return t.substring(prefix.length()).trim();
-            }
-        }
-        throw new RefreshException(
-                FailureStage.PRODUCT_NAME_RESOLVE,
-                "SEGMENT2_TITLE_NOT_FOUND",
-                "未找到以「" + prefix + "」开头的标题行",
-                null,
-                null);
     }
 
     private static String findUniqueAnchorText(XMLSlideShow ppt, int slideIndexBase, int slideIndex, String anchor) {

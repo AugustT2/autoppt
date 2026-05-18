@@ -2,7 +2,9 @@ deckType: "混合固收+-M1"
 version: "1"
 
 productNameResolution:
-  strategy: EMPTY_OK
+  strategy: LLM_EXTRACT
+  slideIndex: 0
+  hint: "标题形如「任意前缀-产品名」，只输出连字符后的产品展示名，不要前缀、不要解释"
 
 timeRules:
   - latestQuarter
