@@ -61,20 +61,13 @@ public class ProductNameResolver {
         switch (cfg.strategyEnum()) {
             case ANCHOR_REGEX:
                 validateAnchorRegex(cfg);
-                int ai = cfg.getSlideIndex() != null ? cfg.getSlideIndex() : 0;
-                String boxText = findUniqueAnchorText(ppt, base, ai, cfg.getAnchorText());
-                Pattern p = Pattern.compile(cfg.getPattern());
-                Matcher m = p.matcher(boxText);
-                if (!m.find()) {
-                    throw new RefreshException(
-                            FailureStage.PRODUCT_NAME_RESOLVE,
-                            "ANCHOR_REGEX_NO_MATCH",
-                            "正则未匹配到产品名: " + cfg.getPattern(),
-                            null,
-                            null);
-                }
-                return m.group(1).trim();
+                return resolveAnchorRegexOnSlide(ppt, base, cfg);
             case LLM_EXTRACT:
+                if (!properties.getLlm().isEnabled()
+                        && StringUtils.hasText(cfg.getAnchorText())
+                        && StringUtils.hasText(cfg.getPattern())) {
+                    return resolveAnchorRegexOnSlide(ppt, base, cfg);
+                }
                 int li = cfg.getSlideIndex() != null ? cfg.getSlideIndex() : 0;
                 String slideText = SlidePlainText.collectSlide(ppt, base, li);
                 if (!StringUtils.hasText(slideText)) {
@@ -106,6 +99,24 @@ public class ProductNameResolver {
                         null,
                         null);
         }
+    }
+
+    private static String resolveAnchorRegexOnSlide(
+            XMLSlideShow ppt, int slideIndexBase, ProductNameResolution cfg) {
+        validateAnchorRegex(cfg);
+        int ai = cfg.getSlideIndex() != null ? cfg.getSlideIndex() : 0;
+        String boxText = findUniqueAnchorText(ppt, slideIndexBase, ai, cfg.getAnchorText());
+        Pattern p = Pattern.compile(cfg.getPattern());
+        Matcher m = p.matcher(boxText);
+        if (!m.find()) {
+            throw new RefreshException(
+                    FailureStage.PRODUCT_NAME_RESOLVE,
+                    "ANCHOR_REGEX_NO_MATCH",
+                    "正则未匹配到产品名: " + cfg.getPattern(),
+                    null,
+                    null);
+        }
+        return m.group(1).trim();
     }
 
     private static void validateAnchorRegex(ProductNameResolution cfg) {

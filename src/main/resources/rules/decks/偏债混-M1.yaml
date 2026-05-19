@@ -1,12 +1,14 @@
 deckType: "偏债混-M1"
 version: "2"
 
-# 左上信息块「基金名称：xxx」提取展示名（去掉（示例）等后缀）
+# 「基金基本情况」块首行多为「产品线-展示名」（如 偏债混-蓝海稳健增长混合A），由 LLM 只取连字符后作为 productDisplayName
 productNameResolution:
-  strategy: ANCHOR_REGEX
+  strategy: LLM_EXTRACT
   slideIndex: 0
-  anchorText: "基金名称"
-  pattern: "基金名称[：:]\\s*([^（(\\n]+)"
+  hint: "在「基金基本情况」信息块中，首行常为「产品线前缀-基金展示名」（示例：偏债混-中欧医疗A）。只输出英文连字符或中文破折号后的基金展示名（示例：中欧医疗A），不要产品线前缀、不要括号内说明、不要解释。"
+  # stub-llm（未启用 LLM）时回退；正式 API 刷新走 LLM
+  anchorText: "基金类型"
+  pattern: "偏债混-([^\\n（(]+)"
 
 timeRules:
   - latestQuarter
@@ -23,10 +25,10 @@ tasks:
   - id: fund_meta
     type: text
     slideIndex: 0
-    # 锚点在「基金名称：」之后整段可替换内容（勿用单独标题框「基金基本情况」）
-    anchorText: "基金名称："
+    # 保留标题「基金基本情况」与首行「产品线-产品名」；从「基金类型：」起替换后续字段
+    anchorText: "基金类型："
     mode: after_anchor
-    intent: "更新基金名称、类型、成立日、规模、基金经理、业绩比较基准、风险等级、托管人等基本信息"
+    intent: "更新基金类型、成立日、规模、基金经理、业绩比较基准、风险等级、托管人等（勿改首行产品线-产品名）"
 
   - id: yield_ranking_table
     type: table
