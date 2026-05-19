@@ -19,6 +19,8 @@ public class HardcodedFundCodeLookup {
         putAlias("中欧瑾添", "013998");
         putAlias("中欧瑾添A", "013998");
         putAlias("瑾添", "013998");
+        putAlias("蓝海稳健增长混合A", "001234");
+        putAlias("蓝海稳健增长混合", "001234");
         putAlias("演示产品", "019999");
     }
 

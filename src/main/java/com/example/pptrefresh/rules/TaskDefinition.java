@@ -10,6 +10,11 @@ public class TaskDefinition {
     private Integer tableOrdinal;
     private Integer chartOrdinal;
     private String intent;
+    /**
+     * 可选。配置则进入流水线模式（只注册该 Tool）；不配置则 Agent 模式（注册全部 Tool，由模型按 intent 选择）。
+     */
+    private String tool;
+    /** 可选：deck 特例说明（非工具参数列表）。 */
     private String hints;
 
     public String getId() {
@@ -74,6 +79,14 @@ public class TaskDefinition {
 
     public void setIntent(String intent) {
         this.intent = intent;
+    }
+
+    public String getTool() {
+        return tool;
+    }
+
+    public void setTool(String tool) {
+        this.tool = tool;
     }
 
     public String getHints() {

@@ -22,7 +22,7 @@
         <java.version>17</java.version>
         <poi.version>5.2.5</poi.version>
         <langchain4j.version>1.12.2</langchain4j.version>
-        <exec.mainClass>com.example.pptrefresh.sample.ZhongOuDeckBuilder</exec.mainClass>
+        <exec.mainClass>com.example.pptrefresh.sample.RefreshSampleMain</exec.mainClass>
     </properties>
 
     <dependencyManagement>

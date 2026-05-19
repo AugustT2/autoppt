@@ -75,10 +75,25 @@ public class RefreshOrchestrator {
 
     public RefreshJobResult run(RefreshJobRequest request) {
         String jobId = UUID.randomUUID().toString();
-        Path source = Path.of(request.getSourcePptxPath());
-        Path output = Path.of(request.getOutputPptxPath());
         ParsedFilename parsed = null;
         ResolvedProduct resolved = null;
+        Path source;
+        Path output;
+        try {
+            RefreshOutputPaths.Resolved paths =
+                    RefreshOutputPaths.resolve(
+                            Path.of(request.getSourcePptxPath()),
+                            Path.of(request.getOutputPptxPath()));
+            source = paths.source();
+            output = paths.output();
+            if (paths.outputAutoDerived()) {
+                log.warn(
+                        "output 与 source 相同或会覆盖源文件，结果已写入: {}",
+                        output.toAbsolutePath());
+            }
+        } catch (IOException e) {
+            return new RefreshJobResult(false, jobId, null, null, "路径无效: " + e.getMessage());
+        }
         try {
             parsed = FilenameParser.parse(source);
             WhitelistRegistry registry = rulesLoader.loadRegistry(properties.getRulesDir());

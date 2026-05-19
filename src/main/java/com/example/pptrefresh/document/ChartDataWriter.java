@@ -24,7 +24,15 @@ import org.openxmlformats.schemas.drawingml.x2006.chart.CTStrVal;
 import java.io.IOException;
 import java.util.List;
 
-/** 嵌入表 + 图表缓存写数（POI 柱状/折线图数据与 strCache/numCache 同步）。 */
+/**
+ * 图表数据写回。
+ *
+ * <p><b>为何 PowerPoint 常提示修复/打不开</b>：{@code chart.getWorkbook()} + {@code saveWorkbook} 会让 POI
+ * 重写 {@code ppt/embeddings/*.xlsx}；再经 {@code XMLSlideShow#write} 整包落盘，嵌入表结构易与 chart
+ * 外部引用不一致。默认 {@link ChartWriteMode#CACHE_ONLY} 只改 chart 部件里的缓存与公式，嵌入 xlsx 保持模板原样。
+ *
+ * <p>勿使用 {@code XDDFChart#plot}/{@code setWorkbook(null)}，会拆掉图表关系。
+ */
 public final class ChartDataWriter {
 
     private ChartDataWriter() {}
@@ -33,7 +41,8 @@ public final class ChartDataWriter {
             XSLFChart chart,
             List<String> categories,
             List<String> seriesNames,
-            List<List<Double>> seriesValues)
+            List<List<Double>> seriesValues,
+            ChartWriteMode mode)
             throws IOException, InvalidFormatException {
         String[] cats = categories.toArray(String[]::new);
         String[] names = seriesNames.toArray(String[]::new);
@@ -45,26 +54,27 @@ public final class ChartDataWriter {
                 values[i][j] = row.get(j);
             }
         }
-        writeEmbeddedChartSheet(chart, cats, names, values);
+        rebuildRefCaches(chart, cats, names, values);
+        if (mode == ChartWriteMode.EMBEDDED_WORKBOOK) {
+            writeEmbeddedWorkbook(chart, cats, names, values);
+        } else {
+            ChartEmbeddedXlsxPatcher.patch(chart, cats, names, values);
+        }
     }
 
-    private static void writeEmbeddedChartSheet(
+    public static void write(
+            XSLFChart chart,
+            List<String> categories,
+            List<String> seriesNames,
+            List<List<Double>> seriesValues)
+            throws IOException, InvalidFormatException {
+        write(chart, categories, seriesNames, seriesValues, ChartWriteMode.CACHE_ONLY);
+    }
+
+    private static void writeEmbeddedWorkbook(
             XSLFChart chart, String[] categories, String[] seriesNames, double[][] seriesValues)
             throws IOException, InvalidFormatException {
-        if (categories.length == 0) {
-            throw new IllegalArgumentException("分类轴不能为空");
-        }
         int numSeries = seriesNames.length;
-        if (seriesValues.length != numSeries) {
-            throw new IllegalArgumentException("系列名个数与 seriesValues 行数不一致");
-        }
-        for (int s = 0; s < numSeries; s++) {
-            if (seriesValues[s].length != categories.length) {
-                throw new IllegalArgumentException(
-                        "系列 " + s + " 点数与分类数不一致");
-            }
-        }
-
         XSSFWorkbook wb = chart.getWorkbook();
         XSSFSheet sh = wb.getSheetAt(0);
 
@@ -72,7 +82,6 @@ public final class ChartDataWriter {
         for (int s = 0; s < numSeries; s++) {
             getOrCreateCell(row0, 1 + s).setCellValue(seriesNames[s]);
         }
-
         for (int i = 0; i < categories.length; i++) {
             Row row = getOrCreateRow(sh, 1 + i);
             getOrCreateCell(row, 0).setCellValue(categories[i]);
@@ -80,10 +89,18 @@ public final class ChartDataWriter {
                 getOrCreateCell(row, 1 + s).setCellValue(seriesValues[s][i]);
             }
         }
-
+        clearRowsBelow(sh, categories.length);
         chart.saveWorkbook(wb);
-        chart.setWorkbook(null);
-        rebuildRefCaches(chart, categories, seriesNames, seriesValues);
+    }
+
+    private static void clearRowsBelow(XSSFSheet sh, int categoryCount) {
+        int lastDataRow0 = categoryCount;
+        for (int r = sh.getLastRowNum(); r > lastDataRow0; r--) {
+            Row row = sh.getRow(r);
+            if (row != null) {
+                sh.removeRow(row);
+            }
+        }
     }
 
     private static void rebuildRefCaches(
@@ -96,7 +113,13 @@ public final class ChartDataWriter {
             int s = 0;
             for (CTBarSer ser : bc.getSerList()) {
                 refreshSeriesCaches(
-                        ser.getTx(), ser.getCat(), ser.getVal(), categories, seriesNames[s], seriesValues[s]);
+                        ser.getTx(),
+                        ser.getCat(),
+                        ser.getVal(),
+                        categories,
+                        seriesNames[s],
+                        seriesValues[s],
+                        s + 1);
                 s++;
             }
         }
@@ -104,7 +127,13 @@ public final class ChartDataWriter {
             int s = 0;
             for (CTLineSer ser : lc.getSerList()) {
                 refreshSeriesCaches(
-                        ser.getTx(), ser.getCat(), ser.getVal(), categories, seriesNames[s], seriesValues[s]);
+                        ser.getTx(),
+                        ser.getCat(),
+                        ser.getVal(),
+                        categories,
+                        seriesNames[s],
+                        seriesValues[s],
+                        s + 1);
                 s++;
             }
         }
@@ -116,16 +145,41 @@ public final class ChartDataWriter {
             CTNumDataSource val,
             String[] categories,
             String seriesName,
-            double[] seriesPoints) {
+            double[] seriesPoints,
+            int seriesCol) {
+        int rowEnd = 1 + categories.length;
         if (tx != null && tx.isSetStrRef()) {
-            refillStrCache(tx.getStrRef(), new String[] {seriesName});
+            CTStrRef ref = tx.getStrRef();
+            ref.setF(sheetRange(seriesCol, 1, 1));
+            refillStrCache(ref, new String[] {seriesName});
         }
         if (cat != null && cat.isSetStrRef()) {
-            refillStrCache(cat.getStrRef(), categories);
+            CTStrRef ref = cat.getStrRef();
+            ref.setF(sheetRange(0, 2, rowEnd));
+            refillStrCache(ref, categories);
         }
         if (val != null && val.isSetNumRef()) {
-            refillNumCacheFromDoubles(val.getNumRef(), seriesPoints);
+            CTNumRef ref = val.getNumRef();
+            ref.setF(sheetRange(seriesCol, 2, rowEnd));
+            refillNumCacheFromDoubles(ref, seriesPoints);
         }
+    }
+
+    private static String sheetRange(int col0, int rowStart1, int rowEnd1) {
+        return "Sheet1!"
+                + cellRef(col0, rowStart1)
+                + (rowStart1 == rowEnd1 ? "" : ":" + cellRef(col0, rowEnd1));
+    }
+
+    private static String cellRef(int col0, int row1) {
+        return "$" + columnLetter(col0) + "$" + row1;
+    }
+
+    private static String columnLetter(int col0) {
+        if (col0 < 0 || col0 > 25) {
+            throw new IllegalArgumentException("列索引超出 A-Z: " + col0);
+        }
+        return String.valueOf((char) ('A' + col0));
     }
 
     private static void refillStrCache(CTStrRef ref, String[] values) {

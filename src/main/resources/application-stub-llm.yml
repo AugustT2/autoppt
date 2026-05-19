@@ -2,5 +2,6 @@
 #   spring.profiles.active=stub-llm
 ppt:
   refresh:
+    chart-write-mode: cache-only
     llm:
       enabled: false

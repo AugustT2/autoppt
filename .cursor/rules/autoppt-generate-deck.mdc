@@ -1,14 +1,14 @@
 ---
-description: 修改 PPT 刷新/写盘/示例生成相关代码后建议自动编译并跑示例生成
+description: 修改 PPT 刷新/写盘相关代码后建议自动编译并跑 Stub 刷新示例
 alwaysApply: true
 ---
 
 # 演示文稿相关改动验证
 
-在本仓库中**只要改动了会影响 `pptrefresh` 包下文档写回（`document`）、编排（`orchestration`）、示例 `ZhongOuDeckBuilder` 或根目录 `template_*.pptx` 模板引用的 Java**，在结束该轮修改前**建议由助手自行执行**：
+在本仓库中**只要改动了会影响 `pptrefresh` 包下文档写回（`document`）、编排（`orchestration`）、`RefreshSampleMain` 或根目录 `template_*.pptx` 模板引用的 Java**，在结束该轮修改前**建议由助手自行执行**：
 
 ```powershell
-Set-Location d:\IdeaProjects\java_ppt\autoppt; mvn -q compile test exec:java "-Dexec.mainClass=com.example.pptrefresh.sample.ZhongOuDeckBuilder"
+Set-Location d:\IdeaProjects\java_ppt\autoppt; mvn -q compile test exec:java "-Dexec.mainClass=com.example.pptrefresh.sample.RefreshSampleMain"
 ```
 
-示例输出：`samples/20260430-偏债混-M1.pptx`（路径以用户仓库为准）。执行后在回复里写明生成文件绝对路径；Spring Boot 服务改动可用 `mvn -q spring-boot:run` 另行验证。
+需已有 `samples/20260430-偏债混-M1.pptx` 作为输入；输出为 `samples/20260430-偏债混-M1-refreshed.pptx`（路径以仓库为准）。执行后在回复里写明生成文件绝对路径；Spring Boot 服务改动可用 `mvn -q spring-boot:run` 另行验证。

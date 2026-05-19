@@ -30,13 +30,51 @@ public class DemoToolExecutor {
                         "quarter"));
         tools.add(
                 wrapFunction(
-                        "fetchDeckDataBundle",
-                        "联调用：一次返回整页硬编码演示数据（标题/文案后缀/业绩表/两张图）。"
-                                + "productName 必须与用户消息中的 productDisplayName 一致；"
-                                + "latestQuarter、latestDate 同用户消息。",
+                        "fetchTitleText",
+                        "查询主标题文案（title task）",
+                        "productName",
+                        "productLinePrefix"));
+        tools.add(
+                wrapFunction(
+                        "fetchFundMetaAfterAnchor",
+                        "查询基金基本信息后缀（fund_meta task）",
+                        "productCode",
+                        "productName",
+                        "latestQuarter"));
+        tools.add(
+                wrapFunction(
+                        "fetchStrategyAfterAnchor",
+                        "查询投资范围及策略正文（strategy task）",
+                        "productCode",
+                        "productName"));
+        tools.add(
+                wrapFunction(
+                        "fetchPerformanceTable",
+                        "查询业绩指标表（performance_table task）",
+                        "productCode",
                         "productName",
                         "latestQuarter",
-                        "latestDate"));
+                        "tableRows",
+                        "tableCols"));
+        tools.add(
+                wrapFunction(
+                        "fetchAllocationChart",
+                        "查询大类资产配置柱状图（allocation_chart）",
+                        "productCode",
+                        "productName",
+                        "latestQuarter",
+                        "categoryCount",
+                        "seriesCount"));
+        tools.add(
+                wrapFunction(
+                        "fetchNavChart",
+                        "查询累计收益率折线图（nav_chart）",
+                        "productCode",
+                        "productName",
+                        "latestDate",
+                        "benchmarkName",
+                        "categoryCount",
+                        "seriesCount"));
         return tools;
     }
 
@@ -67,11 +105,41 @@ public class DemoToolExecutor {
             case "fetchQuarterReturnSummary":
                 return tools.fetchQuarterReturnSummary(
                         args.get("productCode").asText(), args.get("quarter").asText());
-            case "fetchDeckDataBundle":
-                return tools.fetchDeckDataBundle(
+            case "fetchTitleText":
+                return tools.fetchTitleText(
+                        args.path("productName").asText(""),
+                        args.path("productLinePrefix").asText("偏债混"));
+            case "fetchFundMetaAfterAnchor":
+                return tools.fetchFundMetaAfterAnchor(
+                        args.path("productCode").asText(""),
+                        args.path("productName").asText(""),
+                        args.path("latestQuarter").asText(""));
+            case "fetchStrategyAfterAnchor":
+                return tools.fetchStrategyAfterAnchor(
+                        args.path("productCode").asText(""),
+                        args.path("productName").asText(""));
+            case "fetchPerformanceTable":
+                return tools.fetchPerformanceTable(
+                        args.path("productCode").asText(""),
                         args.path("productName").asText(""),
                         args.path("latestQuarter").asText(""),
-                        args.path("latestDate").asText(""));
+                        args.path("tableRows").asInt(7),
+                        args.path("tableCols").asInt(6));
+            case "fetchAllocationChart":
+                return tools.fetchAllocationChart(
+                        args.path("productCode").asText(""),
+                        args.path("productName").asText(""),
+                        args.path("latestQuarter").asText(""),
+                        args.path("categoryCount").asInt(4),
+                        args.path("seriesCount").asInt(4));
+            case "fetchNavChart":
+                return tools.fetchNavChart(
+                        args.path("productCode").asText(""),
+                        args.path("productName").asText(""),
+                        args.path("latestDate").asText(""),
+                        args.path("benchmarkName").asText("万得混合债券型二级指数"),
+                        args.path("categoryCount").asInt(6),
+                        args.path("seriesCount").asInt(2));
             default:
                 throw new IllegalArgumentException("未知 tool: " + name);
         }

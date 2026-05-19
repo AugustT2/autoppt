@@ -10,13 +10,15 @@ langchain4j:
       api-key: ${DASHSCOPE_API_KEY:${LLM_API_KEY:}}
       model-name: ${LLM_MODEL:qwen-plus}
       timeout: 120s
-      log-requests: false
-      log-responses: false
+      log-requests: true
+      log-responses: true
 
 ppt:
   refresh:
     rules-dir: classpath:rules
     slide-index-base: 0
+    # cache-only：只改 chart 缓存/公式，不重写嵌入 xlsx（避免 PowerPoint 修复/打不开）
+    chart-write-mode: cache-only
     llm:
       # false 时走 StubLlmTaskRunner，不调用 ChatModel（与是否配置 api-key 无关）
       enabled: true

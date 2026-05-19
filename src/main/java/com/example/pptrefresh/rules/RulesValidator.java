@@ -2,6 +2,7 @@ package com.example.pptrefresh.rules;
 
 import com.example.pptrefresh.exception.FailureStage;
 import com.example.pptrefresh.exception.RefreshException;
+import com.example.pptrefresh.tools.ToolCatalog;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -10,6 +11,12 @@ import java.util.Set;
 
 @Component
 public class RulesValidator {
+
+    private final ToolCatalog toolCatalog;
+
+    public RulesValidator(ToolCatalog toolCatalog) {
+        this.toolCatalog = toolCatalog;
+    }
 
     public void validate(DeckRules rules) {
         if (!StringUtils.hasText(rules.getDeckType())) {
@@ -31,6 +38,10 @@ public class RulesValidator {
             }
             if (!StringUtils.hasText(task.getIntent())) {
                 throw schemaError("task.intent 不能为空: " + task.getId());
+            }
+            if (StringUtils.hasText(task.getTool())
+                    && !toolCatalog.knownToolNames().contains(task.getTool().trim())) {
+                throw schemaError("未知 tool \"" + task.getTool() + "\": " + task.getId());
             }
             switch (task.getType()) {
                 case text:

@@ -7,6 +7,8 @@ public class PptRefreshProperties {
 
     private String rulesDir = "classpath:rules";
     private int slideIndexBase = 0;
+    /** 图表写回：cache-only（默认，不重写嵌入 xlsx）| embedded-workbook */
+    private String chartWriteMode = "cache-only";
     private final Llm llm = new Llm();
 
     public String getRulesDir() {
@@ -23,6 +25,24 @@ public class PptRefreshProperties {
 
     public void setSlideIndexBase(int slideIndexBase) {
         this.slideIndexBase = slideIndexBase;
+    }
+
+    public String getChartWriteMode() {
+        return chartWriteMode;
+    }
+
+    public void setChartWriteMode(String chartWriteMode) {
+        this.chartWriteMode = chartWriteMode;
+    }
+
+    public com.example.pptrefresh.document.ChartWriteMode chartWriteModeEnum() {
+        if (chartWriteMode == null || chartWriteMode.isBlank() || "cache-only".equalsIgnoreCase(chartWriteMode)) {
+            return com.example.pptrefresh.document.ChartWriteMode.CACHE_ONLY;
+        }
+        if ("embedded-workbook".equalsIgnoreCase(chartWriteMode)) {
+            return com.example.pptrefresh.document.ChartWriteMode.EMBEDDED_WORKBOOK;
+        }
+        throw new IllegalArgumentException("未知 ppt.refresh.chart-write-mode: " + chartWriteMode);
     }
 
     public Llm getLlm() {

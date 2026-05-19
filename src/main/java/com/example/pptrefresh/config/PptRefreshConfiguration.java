@@ -6,6 +6,7 @@ import com.example.pptrefresh.llm.StubLlmTaskRunner;
 import com.example.pptrefresh.llm.WritePayloadParser;
 import com.example.pptrefresh.tools.DemoDataTools;
 import com.example.pptrefresh.tools.DemoToolExecutor;
+import com.example.pptrefresh.tools.ToolCatalog;
 import dev.langchain4j.model.chat.ChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -29,8 +30,8 @@ public class PptRefreshConfiguration {
     LlmTaskRunner llmTaskRunner(
             PptRefreshProperties properties,
             WritePayloadParser writePayloadParser,
-            DemoDataTools demoDataTools,
             DemoToolExecutor demoToolExecutor,
+            ToolCatalog toolCatalog,
             @Autowired(required = false) ChatModel chatModel) {
         if (properties.getLlm().isEnabled()) {
             if (chatModel == null) {
@@ -38,7 +39,7 @@ public class PptRefreshConfiguration {
                         "ppt.refresh.llm.enabled=true 但未创建 ChatModel：请配置 langchain4j.open-ai.chat-model.api-key");
             }
             return new LangChain4jLlmTaskRunner(
-                    chatModel, writePayloadParser, demoDataTools, demoToolExecutor);
+                    chatModel, writePayloadParser, demoToolExecutor, toolCatalog);
         }
         return new StubLlmTaskRunner();
     }

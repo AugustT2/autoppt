@@ -17,13 +17,12 @@ tasks:
     anchorText: "基金业绩说明"
     mode: replace_all
     intent: "生成一行标题，包含产品名称与最新季度说明"
-    hints: "标题应简洁，含产品名"
 
   - id: sample_rank_table
     type: table
     slideIndex: 0
     tableOrdinal: 1
-    intent: "填充收益率排名表，仅数据区，行列数与模板一致"
+    intent: "填充收益率排名表，行列数与模板一致"
 
   - id: sample_allocation_chart
     type: chart

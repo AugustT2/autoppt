@@ -1,12 +1,12 @@
 deckType: "偏债混-M1"
-version: "1"
+version: "2"
 
+# 左上信息块「基金名称：xxx」提取展示名（去掉（示例）等后缀）
 productNameResolution:
   strategy: ANCHOR_REGEX
   slideIndex: 0
-  # 标题框内稳定锚点（样例为「偏债混-中欧瑾添」）；前缀可变时用 pattern 取第一个 - 之后
-  anchorText: "瑾添"
-  pattern: "^[^-]+-(.+)$"
+  anchorText: "基金名称"
+  pattern: "基金名称[：:]\\s*([^（(\\n]+)"
 
 timeRules:
   - latestQuarter
@@ -16,38 +16,33 @@ tasks:
   - id: title
     type: text
     slideIndex: 0
-    anchorText: "最新规模"
+    anchorText: "基金业绩说明"
     mode: replace_all
-    intent: "查询该基金产品的最新规模，单位为亿"
+    intent: "更新页主标题（示例页可为「基金业绩说明」及数据截止说明）"
 
   - id: fund_meta
     type: text
     slideIndex: 0
-    anchorText: "A:013998"
+    # 锚点在「基金名称：」之后整段可替换内容（勿用单独标题框「基金基本情况」）
+    anchorText: "基金名称："
     mode: after_anchor
-    intent: "更新基金代码、成立日、基金经理、最新规模等基本信息"
+    intent: "更新基金名称、类型、成立日、规模、基金经理、业绩比较基准、风险等级、托管人等基本信息"
 
-  - id: strategy
-    type: text
-    slideIndex: 0
-    anchorText: "投资范围及策略"
-    mode: after_anchor
-    intent: "更新投资范围及策略正文"
-
-  - id: performance_table
+  - id: yield_ranking_table
     type: table
     slideIndex: 0
     tableOrdinal: 1
-    intent: "更新业绩指标表全部单元格，行列数与模板一致"
+    intent: "更新「收益率排名」表全部单元格（列：区间、收益率、同类排名、分位数；行数与模板一致）"
 
   - id: allocation_chart
     type: chart
     slideIndex: 0
     chartOrdinal: 1
-    intent: "更新大类资产配置分组柱状图：四类资产为分类轴，四个季度为系列，系列数与点数与模板一致"
+    intent: "更新「过去4个季度资产类别配置」分组柱状图（横轴 categories=季度如2024Q2；series=股票/债券/现金及其他）"
 
   - id: nav_chart
     type: chart
     slideIndex: 0
     chartOrdinal: 2
-    intent: "更新累计收益率折线图：两条线分别为本基金与业绩基准，日期点数与模板一致"
+    intent: "更新「累计收益率走势」折线图（本基金与业绩基准两条系列）"
+    hints: "折线系列名：本基金=productDisplayName；业绩基准=业绩比较基准或沪深300复合基准"

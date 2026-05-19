@@ -14,7 +14,8 @@
 1. **有哪些 Tool 可以注册给模型**（注册范围）  
 2. **某次 task 允许模型看到/调用哪些 Tool**（约束范围）
 
-当前两者等价：**所有演示 Tool 每次请求都会挂上**，仅靠提示词建议模型怎么选。
+**默认 Agent 模式**：YAML 不配 `tool` → 挂全部 Tool，SYSTEM 按 `taskType`/`intent` 引导选型，User 仅 intent + 上下文 + 写回格式。  
+**可选流水线模式**：YAML 配置 `tool:` → 只挂该 Tool（生产要稳时用）。
 
 ---
 
@@ -24,8 +25,9 @@
 
 | 组件 | 作用 |
 |------|------|
-| `DemoDataTools` | 三个方法标注 `@Tool`，由 LangChain4j 生成 schema |
-| `LangChain4jLlmTaskRunner` | `ToolSpecifications.toolSpecificationsFrom(demoDataTools)` → **全部** 传入 `ChatRequest` |
+| `DemoDataTools` | 各 task 对应方法标注 `@Tool`，由 LangChain4j 生成 schema |
+| `ToolCatalog` | 从 `DemoDataTools` 收集全部 Tool 名与 schema |
+| `LangChain4jLlmTaskRunner` | `toolCatalog.specificationsForTask(task.tool)` → **仅 1 个** Tool 传入 `ChatRequest` |
 | `DemoToolExecutor` | 模型发起调用时，`execute(name, argsJson)` 分发到 `DemoDataTools` |
 
 演示阶段 Tool 列表（与 `DemoToolExecutor.toolDefinitions()` 一致）：
@@ -34,14 +36,22 @@
 |------|------|
 | `lookupProductCode` | 按产品展示名查基金代码（演示库 / 硬编码表） |
 | `fetchQuarterReturnSummary` | 按 `productCode` + `quarter` 查收益率摘要 |
-| `fetchDeckDataBundle` | 一次返回整页联调数据（标题后缀、业绩表、两张图等） |
+| `fetchTitleText` | 主标题（`title` task） |
+| `fetchFundMetaAfterAnchor` | 基金基本信息后缀（`fund_meta`） |
+| `fetchStrategyAfterAnchor` | 投资策略正文（`strategy`） |
+| `fetchPerformanceTable` | 业绩表 `cells`（`performance_table`） |
+| `fetchAllocationChart` | 资产配置柱图 |
+| `fetchNavChart` | 累计收益折线图 |
 
-### 2.2 软约束（Prompt）
+### 2.2 配置与 Prompt
 
-- **`PromptBuilder.SYSTEM`**：说明可先调 `fetchDeckDataBundle`，且 `productName` 须与 `productDisplayName` 一致；禁止编造未出现在 Tool 结果中的字段。  
-- **User 消息**：按 `taskId` 附带 `textFieldGuide` / `tableFieldGuide` / `chartFieldGuide`，指示从 bundle 的哪些字段填 JSON。
+| 模式 | YAML | LLM 可见 Tool | User 消息 |
+|------|------|---------------|-----------|
+| Agent（默认） | 无 `tool` | 全部 | intent + 上下文 + `writeback=` |
+| 流水线 | `tool: fetchNavChart` | 仅 1 个 | 同上 + `tool=` |
 
-软约束 **不阻止** 模型调用其它 Tool，也不阻止模型跳过 Tool 直接编造（靠写回校验与人工抽检）。
+- **`tool` 若填写**：`RulesValidator` 校验名存在；错误调用抛 `TOOL_NOT_ALLOWED`。  
+- **`hints`**：deck 特例，可选。
 
 ### 2.3 与 LangChain4j Spring Boot Starter 的关系
 
@@ -61,7 +71,7 @@
 ```yaml
 # decks/偏债混-M1.yaml（示意，未实现）
 defaultAllowedTools:
-  - fetchDeckDataBundle
+  - fetchTitleText
   - lookupProductCode
 ```
 
@@ -72,7 +82,7 @@ tasks:
   - id: title
     type: text
     allowedTools:
-      - fetchDeckDataBundle
+      - fetchTitleText
     ...
   - id: fund_meta
     type: text
@@ -118,9 +128,9 @@ task.allowedTools 非空 → 用 task 列表
 
 在不动 YAML 硬约束的前提下，建议模型路径：
 
-1. 绝大多数 text/table/chart task：**只调** `fetchDeckDataBundle`（参数用已解析的 `productDisplayName`、`latestQuarter`、`latestDate`）。  
-2. 仅当 intent 明确要求「按季度查收益」且 bundle 不够时，再调 `fetchQuarterReturnSummary`。  
-3. `lookupProductCode` 通常 **不需要** LLM 再查——编排阶段已解析 `fundCode` 并写入 user 消息；若重复调用可忽略。
+1. 每个 task **只调** YAML `tool` 字段（如 `tool: fetchNavChart`）；参数由 Tool schema + 上下文供模型填写。  
+2. 仅当 intent 明确要求「按季度查收益」时，再调 `fetchQuarterReturnSummary`。  
+3. `lookupProductCode` 通常 **不需要** LLM 再查——编排阶段已解析 `fundCode` 并写入 user 消息。
 
 上述第 3 点依赖 [`产品名称提取方案.md`](./产品名称提取方案.md) 中的 `productNameResolution` + `HardcodedFundCodeLookup`。
 
@@ -157,3 +167,4 @@ task.allowedTools 非空 → 用 task 列表
 | 日期 | 说明 |
 |------|------|
 | 2026-05-18 | 初稿：记录现状（全量注册 + Prompt 软约束）与后续 YAML 白名单方案 |
+| 2026-05-19 | 移除 `fetchDeckDataBundle`；默认 Agent 全量 Tool；`tool` 可选用于流水线模式 |

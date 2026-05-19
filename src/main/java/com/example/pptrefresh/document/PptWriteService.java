@@ -1,5 +1,6 @@
 package com.example.pptrefresh.document;
 
+import com.example.pptrefresh.config.PptRefreshProperties;
 import com.example.pptrefresh.exception.FailureStage;
 import com.example.pptrefresh.exception.RefreshException;
 import com.example.pptrefresh.rules.TaskDefinition;
@@ -7,9 +8,6 @@ import com.example.pptrefresh.rules.TextReplaceMode;
 import com.example.pptrefresh.write.TaskWritePayload;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.xslf.usermodel.XSLFTable;
-import org.apache.poi.xslf.usermodel.XSLFTableCell;
-import org.apache.poi.xslf.usermodel.XSLFTextParagraph;
-import org.apache.poi.xslf.usermodel.XSLFTextRun;
 import org.apache.poi.xslf.usermodel.XSLFTextShape;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +16,12 @@ import java.util.List;
 
 @Component
 public class PptWriteService {
+
+    private final PptRefreshProperties properties;
+
+    public PptWriteService(PptRefreshProperties properties) {
+        this.properties = properties;
+    }
 
     public void apply(TaskDefinition task, ResolvedTarget target, TaskWritePayload payload) {
         try {
@@ -33,7 +37,8 @@ public class PptWriteService {
                             target.chart(),
                             payload.getCategories(),
                             payload.getSeriesNames(),
-                            payload.getSeriesValues());
+                            payload.getSeriesValues(),
+                            properties.chartWriteModeEnum());
                     break;
                 default:
                     throw new IllegalStateException("未知任务类型: " + task.getType());
@@ -41,10 +46,14 @@ public class PptWriteService {
         } catch (RefreshException e) {
             throw e;
         } catch (Exception e) {
+            String detail = e.getMessage();
+            if (detail == null || detail.isBlank()) {
+                detail = e.getClass().getSimpleName();
+            }
             throw new RefreshException(
                     FailureStage.TASK_WRITE,
                     "WRITE_FAILED",
-                    "写回失败: " + e.getMessage(),
+                    "写回失败: " + detail,
                     task.getId(),
                     e);
         }
@@ -72,9 +81,7 @@ public class PptWriteService {
             }
             result = original.substring(0, idx + anchor.length()) + newText;
         }
-        text.clearText();
-        XSLFTextRun run = text.setText(result);
-        run.setFontFamily("微软雅黑");
+        TextStylePreserver.setShapeText(text, result);
     }
 
     private void applyTable(XSLFTable table, List<List<String>> cells) {
@@ -94,12 +101,7 @@ public class PptWriteService {
         }
     }
 
-    private static void setCell(XSLFTableCell cell, String text) {
-        cell.setText(text);
-        for (XSLFTextParagraph p : cell.getTextParagraphs()) {
-            for (XSLFTextRun run : p.getTextRuns()) {
-                run.setFontFamily("微软雅黑");
-            }
-        }
+    private static void setCell(org.apache.poi.xslf.usermodel.XSLFTableCell cell, String text) {
+        TextStylePreserver.setCellText(cell, text);
     }
 }

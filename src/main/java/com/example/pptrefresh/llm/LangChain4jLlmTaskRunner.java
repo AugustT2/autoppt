@@ -2,12 +2,11 @@ package com.example.pptrefresh.llm;
 
 import com.example.pptrefresh.exception.FailureStage;
 import com.example.pptrefresh.exception.RefreshException;
-import com.example.pptrefresh.tools.DemoDataTools;
 import com.example.pptrefresh.tools.DemoToolExecutor;
+import com.example.pptrefresh.tools.ToolCatalog;
 import com.example.pptrefresh.write.TaskWritePayload;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
-import dev.langchain4j.agent.tool.ToolSpecifications;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -22,6 +21,10 @@ import java.util.List;
 
 /**
  * 使用 LangChain4j {@link ChatModel} 完成 task 级对话与 Tool 多轮循环。
+ * <ul>
+ *   <li>Agent 模式（默认）：YAML 未配置 {@code tool} → 挂全部 Tool，由 SYSTEM 引导选型</li>
+ *   <li>流水线模式：YAML 配置 {@code tool} → 只挂该 Tool</li>
+ * </ul>
  */
 public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
 
@@ -30,25 +33,28 @@ public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
     private final ChatModel chatModel;
     private final WritePayloadParser parser;
     private final DemoToolExecutor toolExecutor;
-    private final List<ToolSpecification> toolSpecifications;
+    private final ToolCatalog toolCatalog;
     private final PromptBuilder promptBuilder = new PromptBuilder();
 
     public LangChain4jLlmTaskRunner(
             ChatModel chatModel,
             WritePayloadParser parser,
-            DemoDataTools demoDataTools,
-            DemoToolExecutor toolExecutor) {
+            DemoToolExecutor toolExecutor,
+            ToolCatalog toolCatalog) {
         this.chatModel = chatModel;
         this.parser = parser;
         this.toolExecutor = toolExecutor;
-        this.toolSpecifications = ToolSpecifications.toolSpecificationsFrom(demoDataTools);
+        this.toolCatalog = toolCatalog;
     }
 
     @Override
     public TaskWritePayload fetch(TaskContext context) {
+        String configuredTool = context.task().getTool();
+        boolean strict = !toolCatalog.isAgentMode(configuredTool);
+        List<ToolSpecification> taskTools = toolCatalog.resolveForTask(configuredTool);
         try {
             List<ChatMessage> messages = new ArrayList<>();
-            messages.add(SystemMessage.from(PromptBuilder.SYSTEM));
+            messages.add(SystemMessage.from(promptBuilder.systemMessage(context.task())));
             messages.add(
                     UserMessage.from(
                             promptBuilder.buildUserMessage(
@@ -60,7 +66,7 @@ public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
                                     context.structure())));
 
             ChatRequest.Builder requestBuilder =
-                    ChatRequest.builder().messages(messages).toolSpecifications(toolSpecifications);
+                    ChatRequest.builder().messages(messages).toolSpecifications(taskTools);
 
             for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
                 ChatResponse response = chatModel.chat(requestBuilder.build());
@@ -81,10 +87,22 @@ public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
                 }
 
                 for (ToolExecutionRequest toolRequest : ai.toolExecutionRequests()) {
+                    if (strict && !configuredTool.trim().equals(toolRequest.name())) {
+                        throw new RefreshException(
+                                FailureStage.TASK_LLM,
+                                "TOOL_NOT_ALLOWED",
+                                "本任务仅允许 tool="
+                                        + configuredTool
+                                        + "，模型请求了 "
+                                        + toolRequest.name(),
+                                context.task().getId(),
+                                null);
+                    }
                     String result = toolExecutor.execute(toolRequest.name(), toolRequest.arguments());
                     messages.add(ToolExecutionResultMessage.from(toolRequest, result));
                 }
-                requestBuilder = ChatRequest.builder().messages(messages).toolSpecifications(toolSpecifications);
+                requestBuilder =
+                        ChatRequest.builder().messages(messages).toolSpecifications(taskTools);
             }
             throw new RefreshException(
                     FailureStage.TASK_LLM,
