@@ -26,49 +26,28 @@ public class TableQueryInferenceService {
 
     public TableAnalysis analyze(TaskDefinition task, XSLFTable table, IntervalLexicon lexicon) {
         List<List<String>> matrix = TableMatrixReader.read(table);
-        TableAnalysis analysis;
-        if (llmExtractor.isAvailable()) {
-            try {
-                TableQueryIntent intent =
-                        llmExtractor.infer(matrix, task.getIntent(), lexicon);
-                analysis = TableMatrixLayoutResolver.resolve(matrix, intent, "llm");
-                validate(analysis, matrix, lexicon, task.getId());
-                log.info(
-                        "表格查询分析 task={} source=llm intervals={} metrics={} axis={}",
-                        task.getId(),
-                        analysis.intervalLabels(),
-                        analysis.metrics(),
-                        analysis.intervalAxis());
-                return analysis;
-            } catch (Exception e) {
-                log.warn("表格 LLM 意图识别失败 task={}，回退启发式: {}", task.getId(), e.getMessage());
-            }
-        }
-        analysis = analyzeHeuristic(table, matrix, lexicon);
-        validate(analysis, matrix, lexicon, task.getId());
-        log.info(
-                "表格查询分析 task={} source=heuristic intervals={} metrics={}",
-                task.getId(),
-                analysis.intervalLabels().size(),
-                analysis.metrics());
-        return analysis;
-    }
-
-    private static TableAnalysis analyzeHeuristic(
-            XSLFTable table, List<List<String>> matrix, IntervalLexicon lexicon) {
-        TableIntervalDimensionExtractor.TableLabelScanResult scan =
-                TableIntervalDimensionExtractor.scan(
-                        table, TableLabelAxis.AUTO, 0, 1, lexicon);
-        if (scan.labels().isEmpty()) {
+        try {
+            TableQueryIntent intent =
+                    llmExtractor.infer(matrix, task.getIntent(), lexicon);
+            TableAnalysis analysis = TableMatrixLayoutResolver.resolve(matrix, intent, "llm");
+            validate(analysis, matrix, lexicon, task.getId());
+            log.info(
+                    "表格查询分析 task={} intervals={} metrics={} axis={}",
+                    task.getId(),
+                    analysis.intervalLabels().size(),
+                    analysis.metrics(),
+                    analysis.intervalAxis());
+            return analysis;
+        } catch (RefreshException e) {
+            throw e;
+        } catch (Exception e) {
             throw new RefreshException(
                     FailureStage.DIMENSION_EXTRACT,
-                    "INTERVAL_LABELS_EMPTY",
-                    "启发式未识别到区间标签",
-                    null,
-                    null);
+                    "TABLE_QUERY_INFERENCE_FAILED",
+                    "表格查询意图识别失败: " + e.getMessage(),
+                    task.getId(),
+                    e);
         }
-        TableQueryIntent intent = TableMatrixLayoutResolver.intentFromScan(scan);
-        return TableMatrixLayoutResolver.resolveFromScan(scan, intent, "heuristic");
     }
 
     private static void validate(

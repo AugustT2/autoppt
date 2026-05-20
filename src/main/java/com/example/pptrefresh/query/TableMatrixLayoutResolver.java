@@ -45,38 +45,6 @@ public final class TableMatrixLayoutResolver {
                 source);
     }
 
-    public static TableAnalysis resolveFromScan(
-            TableIntervalDimensionExtractor.TableLabelScanResult scan,
-            TableQueryIntent intent,
-            String source) {
-        List<String> columnHeaders =
-                scan.headerLabels().isEmpty() ? List.of("区间") : scan.headerLabels();
-        return new TableAnalysis(
-                intent.intervalLabels(),
-                intent.metrics(),
-                columnHeaders,
-                scan.rowHeaderLabels(),
-                scan.axis(),
-                scan.labelIndex(),
-                source);
-    }
-
-    static TableQueryIntent intentFromScan(
-            TableIntervalDimensionExtractor.TableLabelScanResult scan) {
-        List<String> headers = scan.headerLabels();
-        List<String> metrics = new ArrayList<>();
-        for (int i = 1; i < headers.size(); i++) {
-            String h = headers.get(i);
-            if (h != null && !h.isBlank()) {
-                metrics.add(h.trim());
-            }
-        }
-        if (metrics.isEmpty() && scan.axis() == TableLabelAxis.COLUMN) {
-            metrics = new ArrayList<>(scan.rowHeaderLabels());
-        }
-        return new TableQueryIntent(scan.labels(), metrics, Optional.of(scan.axis()));
-    }
-
     static List<String> headerRow(
             List<List<String>> matrix, TableLabelAxis axis, int labelIndex) {
         if (matrix.isEmpty()) {

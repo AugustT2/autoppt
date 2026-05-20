@@ -37,7 +37,7 @@ public class QueryPlanService {
         DimensionPolicy policy = resolvePolicy(task, target.structure());
         try {
             return switch (policy.getPolicyType()) {
-                case "table_interval_labels", "table_interval_column" ->
+                case "table_interval_labels" ->
                         buildTablePlan(task, reporting, target, policy);
                 case "quarter_series" -> buildQuarterChartPlan(task, reporting, policy);
                 case "month_series" -> buildMonthChartPlan(task, reporting, target, policy);
