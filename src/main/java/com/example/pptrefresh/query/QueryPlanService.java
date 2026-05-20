@@ -18,11 +18,15 @@ import java.util.List;
 public class QueryPlanService {
 
     private final IntervalConditionResolver conditionResolver;
+    private final TableQueryInferenceService tableQueryInferenceService;
     private final IntervalLexicon defaultLexicon =
             IntervalLexicon.load("/rules/lexicon/fund_performance_rows.yaml");
 
-    public QueryPlanService(IntervalConditionResolver conditionResolver) {
+    public QueryPlanService(
+            IntervalConditionResolver conditionResolver,
+            TableQueryInferenceService tableQueryInferenceService) {
         this.conditionResolver = conditionResolver;
+        this.tableQueryInferenceService = tableQueryInferenceService;
     }
 
     public QueryPlan build(
@@ -72,55 +76,25 @@ public class QueryPlanService {
                         ? "/rules/lexicon/fund_performance_rows.yaml"
                         : policy.getLexicon();
         IntervalLexicon lexicon = loadLexicon(lexiconPath);
-        TableLabelAxis axis = resolveLabelAxis(policy);
-        int labelIndex = resolveLabelIndex(policy);
-        int headerSpan = resolveHeaderSpan(policy);
-        TableIntervalDimensionExtractor.TableLabelScanResult scan =
-                TableIntervalDimensionExtractor.scan(table, axis, labelIndex, headerSpan, lexicon);
-        List<String> labels = scan.labels();
-        if (labels.isEmpty()) {
-            throw new RefreshException(
-                    FailureStage.DIMENSION_EXTRACT,
-                    "INTERVAL_LABELS_EMPTY",
-                    "未从表格读到区间标签（axis="
-                            + scan.axis()
-                            + " index="
-                            + scan.labelIndex()
-                            + " headerSpan="
-                            + scan.headerSpan()
-                            + "）",
-                    task.getId(),
-                    null);
-        }
+        TableAnalysis analysis = tableQueryInferenceService.analyze(task, table, lexicon);
         DimensionSlotRole dataRole =
-                scan.axis() == TableLabelAxis.COLUMN
+                analysis.intervalAxis() == TableLabelAxis.COLUMN
                         ? DimensionSlotRole.DATA_COLUMN
                         : DimensionSlotRole.DATA_ROW;
-        List<DimensionSlot> slots = new ArrayList<>();
-        List<String> headerLabels = scan.headerLabels();
-        String headerCorner =
-                headerLabels.isEmpty() ? "表头" : headerLabels.get(0);
-        slots.add(
+        List<DimensionSlot> dimensions = new ArrayList<>();
+        dimensions.add(
                 new DimensionSlot(
                         0,
                         DimensionSlotRole.HEADER,
-                        headerCorner,
+                        "",
                         null,
-                        headerLabels,
-                        scan.rowHeaderLabels()));
+                        analysis.columnHeaders(),
+                        analysis.rowHeaders()));
         int i = 0;
-        for (String label : labels) {
+        for (String label : analysis.intervalLabels()) {
             String kind = lexicon.resolveKind(label);
-            if (kind == null) {
-                throw new RefreshException(
-                        FailureStage.CONDITION_RESOLVE,
-                        "LEXICON_UNKNOWN_LABEL",
-                        "词表无法识别区间标签: " + label,
-                        task.getId(),
-                        null);
-            }
             QueryCondition condition = conditionResolver.resolve(kind, label, reporting);
-            slots.add(new DimensionSlot(i + 1, dataRole, label, condition));
+            dimensions.add(new DimensionSlot(i + 1, dataRole, label, condition));
             i++;
         }
         QueryPlanWriteBack writeBack =
@@ -130,8 +104,9 @@ public class QueryPlanService {
                 task.getId(),
                 reporting.asOfDate(),
                 reporting.asOfQuarter(),
-                slots,
-                writeBack);
+                dimensions,
+                writeBack,
+                analysis.metrics());
     }
 
     private QueryPlan buildQuarterChartPlan(
@@ -139,10 +114,10 @@ public class QueryPlanService {
         int categoryCount = policy.getCategoryCount() == null ? 4 : policy.getCategoryCount();
         List<String> quarters =
                 DateQuarterUtil.rollingQuartersEndingAt(reporting.asOfQuarter(), categoryCount);
-        List<DimensionSlot> slots = new ArrayList<>();
+        List<DimensionSlot> dimensions = new ArrayList<>();
         int i = 0;
         for (String q : quarters) {
-            slots.add(
+            dimensions.add(
                     new DimensionSlot(
                             i++, DimensionSlotRole.CATEGORY, q, QueryCondition.quarterPoint(q)));
         }
@@ -152,7 +127,7 @@ public class QueryPlanService {
                 task.getId(),
                 reporting.asOfDate(),
                 reporting.asOfQuarter(),
-                slots,
+                dimensions,
                 writeBack);
     }
 
@@ -171,10 +146,10 @@ public class QueryPlanService {
         }
         List<String> months =
                 DateQuarterUtil.rollingMonthsEndingAt(reporting.asOfDate(), count);
-        List<DimensionSlot> slots = new ArrayList<>();
+        List<DimensionSlot> dimensions = new ArrayList<>();
         int i = 0;
         for (String m : months) {
-            slots.add(
+            dimensions.add(
                     new DimensionSlot(
                             i++, DimensionSlotRole.CATEGORY, m, QueryCondition.monthPoint(m)));
         }
@@ -183,7 +158,7 @@ public class QueryPlanService {
                 task.getId(),
                 reporting.asOfDate(),
                 reporting.asOfQuarter(),
-                slots,
+                dimensions,
                 writeBack);
     }
 
@@ -206,42 +181,9 @@ public class QueryPlanService {
         };
     }
 
-    private static TableLabelAxis resolveLabelAxis(DimensionPolicy policy) {
-        if (policy.getLabelAxis() != null && !policy.getLabelAxis().isBlank()) {
-            return TableLabelAxis.fromYaml(policy.getLabelAxis());
-        }
-        if (policy.getIntervalColumn() != null) {
-            return TableLabelAxis.ROW;
-        }
-        return TableLabelAxis.AUTO;
-    }
-
-    private static int resolveLabelIndex(DimensionPolicy policy) {
-        if (policy.getLabelIndex() != null) {
-            return policy.getLabelIndex();
-        }
-        if (policy.getIntervalColumn() != null) {
-            return policy.getIntervalColumn();
-        }
-        return 0;
-    }
-
-    private static int resolveHeaderSpan(DimensionPolicy policy) {
-        if (policy.getHeaderSpan() != null) {
-            return policy.getHeaderSpan();
-        }
-        if (policy.getHeaderRows() != null) {
-            return policy.getHeaderRows();
-        }
-        return 1;
-    }
-
     private static DimensionPolicy defaultTablePolicy() {
         DimensionPolicy p = new DimensionPolicy();
         p.setPolicyType("table_interval_labels");
-        p.setLabelAxis("AUTO");
-        p.setLabelIndex(0);
-        p.setHeaderSpan(1);
         p.setLexicon("/rules/lexicon/fund_performance_rows.yaml");
         return p;
     }

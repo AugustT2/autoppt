@@ -4,8 +4,11 @@ labels:
   近三月: ROLLING_3M
   近六月: ROLLING_6M
   近一年: ROLLING_1Y
+  过去一年: ROLLING_1Y
   近两年: ROLLING_2Y
+  过去两年: ROLLING_2Y
   近三年: ROLLING_3Y
+  过去三年: ROLLING_3Y
   近五年: ROLLING_5Y
   今年以来: YTD
   成立以来: SINCE_INCEPTION

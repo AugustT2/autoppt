@@ -1,7 +1,10 @@
 package com.example.pptrefresh.write;
 
+import com.example.pptrefresh.exception.FailureStage;
+import com.example.pptrefresh.exception.RefreshException;
 import com.example.pptrefresh.llm.TaskContext;
 import com.example.pptrefresh.query.ChartSeriesData;
+import com.example.pptrefresh.query.QueryPlan;
 import com.example.pptrefresh.query.QueryPlan;
 import com.example.pptrefresh.query.QueryPlanDataService;
 import com.example.pptrefresh.rules.TaskDefinition;
@@ -44,18 +47,25 @@ public class TaskWritePayloadEnricher {
         if (task.getType() == TaskType.chart && !hasChartData(payload)) {
             if (mergeChartFromToolJson(payload, lastDataToolResultJson)) {
                 log.debug("task={} chart 写回已从 Tool 结果补全", task.getId());
-            } else if (context.queryPlan() != null) {
+            } else {
+                requireQueryPlan(context);
                 fillChartFromQueryPlan(context, payload);
                 log.debug("task={} chart 写回已从 QueryPlan 补全", task.getId());
             }
         }
-        if (task.getType() == TaskType.table
-                && payload.getCells() == null
-                && context.queryPlan() != null
-                && context.structure() != null) {
+        if (task.getType() == TaskType.table && payload.getCells() == null) {
+            QueryPlan plan = requireQueryPlan(context);
+            if (context.structure() == null) {
+                throw new RefreshException(
+                        FailureStage.TASK_DTO_VALIDATE,
+                        "TABLE_STRUCTURE_MISSING",
+                        "表格结构未解析，无法从 QueryPlan 补全 cells",
+                        task.getId(),
+                        null);
+            }
             payload.setCells(
                     queryPlanDataService.buildTableCells(
-                            context.queryPlan(),
+                            plan,
                             context.fundCode(),
                             context.structure().tableRows(),
                             context.structure().tableCols()));
@@ -136,6 +146,18 @@ public class TaskWritePayloadEnricher {
 
     private static String benchmarkName(TaskContext context) {
         return "业绩基准";
+    }
+
+    private static QueryPlan requireQueryPlan(TaskContext context) {
+        if (context.queryPlan() == null) {
+            throw new RefreshException(
+                    FailureStage.TASK_DTO_VALIDATE,
+                    "QUERY_PLAN_REQUIRED",
+                    "缺少 QueryPlan，无法补全表格/图表写回",
+                    context.task().getId(),
+                    null);
+        }
+        return context.queryPlan();
     }
 
     private void unwrapJsonEmbeddedInText(TaskWritePayload payload) {

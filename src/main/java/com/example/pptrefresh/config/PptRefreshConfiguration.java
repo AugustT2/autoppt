@@ -1,11 +1,8 @@
 package com.example.pptrefresh.config;
 
-import com.example.pptrefresh.funds.FundFactsClient;
-import com.example.pptrefresh.query.QueryPlanDataService;
 import com.example.pptrefresh.llm.LangChain4jLlmTaskRunner;
 import com.example.pptrefresh.llm.LlmTaskRunner;
 import com.example.pptrefresh.llm.PromptBuilder;
-import com.example.pptrefresh.llm.StubLlmTaskRunner;
 import com.example.pptrefresh.llm.WritePayloadParser;
 import com.example.pptrefresh.write.TaskWritePayloadEnricher;
 import com.example.pptrefresh.tools.DemoDataTools;
@@ -18,8 +15,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * LLM：由 {@code langchain4j-open-ai-spring-boot-starter} 根据 {@code langchain4j.open-ai.*} 自动注册
- * {@link ChatModel}；本类只负责在 {@code ppt.refresh.llm.enabled} 下选择 Stub 或 LangChain4j 实现。
+ * LLM：由 {@code langchain4j-open-ai-spring-boot-starter} 注册 {@link ChatModel}，
+ * 任务取数统一走 {@link LangChain4jLlmTaskRunner}（需 {@code ppt.refresh.llm.enabled=true}）。
  */
 @Configuration
 @EnableConfigurationProperties(PptRefreshProperties.class)
@@ -38,22 +35,21 @@ public class PptRefreshConfiguration {
             ToolCatalog toolCatalog,
             PromptBuilder promptBuilder,
             TaskWritePayloadEnricher payloadEnricher,
-            FundFactsClient fundFactsClient,
-            QueryPlanDataService queryPlanDataService,
             @Autowired(required = false) ChatModel chatModel) {
-        if (properties.getLlm().isEnabled()) {
-            if (chatModel == null) {
-                throw new IllegalStateException(
-                        "ppt.refresh.llm.enabled=true 但未创建 ChatModel：请配置 langchain4j.open-ai.chat-model.api-key");
-            }
-            return new LangChain4jLlmTaskRunner(
-                    chatModel,
-                    writePayloadParser,
-                    demoToolExecutor,
-                    toolCatalog,
-                    promptBuilder,
-                    payloadEnricher);
+        if (!properties.getLlm().isEnabled()) {
+            throw new IllegalStateException(
+                    "ppt.refresh.llm.enabled 必须为 true（已移除无 LLM 的 Stub 取数路径）");
         }
-        return new StubLlmTaskRunner(fundFactsClient, queryPlanDataService);
+        if (chatModel == null) {
+            throw new IllegalStateException(
+                    "未创建 ChatModel：请配置 langchain4j.open-ai.chat-model.api-key（如环境变量 DASHSCOPE_API_KEY）");
+        }
+        return new LangChain4jLlmTaskRunner(
+                chatModel,
+                writePayloadParser,
+                demoToolExecutor,
+                toolCatalog,
+                promptBuilder,
+                payloadEnricher);
     }
 }

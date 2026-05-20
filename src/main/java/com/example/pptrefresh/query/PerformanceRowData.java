@@ -24,4 +24,31 @@ public final class PerformanceRowData {
     public String percentile() {
         return percentile;
     }
+
+    /** 按表头指标名取值（兼容常见列名变体）。 */
+    public String metricValue(String metricName) {
+        if (metricName == null) {
+            return "";
+        }
+        String m = metricName.trim();
+        if (m.contains("收益率") && !m.contains("排名") && !m.contains("指数")) {
+            return returnPct;
+        }
+        if (m.contains("排名")) {
+            return peerRank;
+        }
+        if (m.contains("分位")) {
+            return percentile;
+        }
+        if (m.contains("指数")) {
+            return returnPct;
+        }
+        if (m.contains("风险回报")) {
+            return percentile;
+        }
+        if (m.contains("回撤")) {
+            return peerRank;
+        }
+        return returnPct;
+    }
 }

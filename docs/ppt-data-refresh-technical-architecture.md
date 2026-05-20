@@ -401,7 +401,7 @@ LangChain4j ──tool_calls──► ToolDispatcher ──► HttpToolExecutor
 |------|------|
 | 代码入口 | **`com.example.pptrefresh`**：REST 刷新服务、`document` 写回、`llm` 与 `rules`。 |
 | 图表数据写回 | **`ChartDataWriter`**：嵌入工作簿 + 柱状/折线图的 strCache/numCache 刷新（与常见 POI 实践一致）。 |
-| 本地 Stub 联调 | **`RefreshSampleMain`**：读取 `samples/` 下样例 pptx，输出 `*-refreshed.pptx`。 |
+| 本地联调 | **`RefreshSampleMain`**：需 LLM API Key；读取 `samples/` 样例 pptx，输出 `*-refreshed.pptx`。 |
 | Maven 工件名 | `artifactId` 仍为 `autoppt`（历史仓库名），与 Java 包名无关。 |
 
 ---

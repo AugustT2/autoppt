@@ -26,32 +26,61 @@ public class QueryPlanFormatter {
         root.put("taskId", plan.taskId());
         root.put("asOfDate", plan.asOfDate().toString());
         root.put("asOfQuarter", plan.asOfQuarter());
+
+        if (plan.tableMetrics() != null && !plan.tableMetrics().isEmpty()) {
+            root.put("table", tableSection(plan));
+        } else {
+            root.put("dimensions", chartDimensions(plan));
+        }
+
+        if (plan.writeBack() != null) {
+            Map<String, Object> wb = new LinkedHashMap<>();
+            wb.put("tableRows", plan.writeBack().tableRows());
+            wb.put("tableCols", plan.writeBack().tableCols());
+            if (!plan.writeBack().categoryLabels().isEmpty()) {
+                wb.put("categoryLabels", plan.writeBack().categoryLabels());
+            }
+            root.put("writeBack", wb);
+        }
+        return root;
+    }
+
+    private static Map<String, Object> tableSection(QueryPlan plan) {
+        Map<String, Object> table = new LinkedHashMap<>();
+        List<String> headers = List.of();
+        for (DimensionSlot slot : plan.dimensions()) {
+            if (slot.role() == DimensionSlotRole.HEADER && slot.columnHeaders() != null) {
+                headers = slot.columnHeaders();
+                break;
+            }
+        }
+        table.put("headers", headers);
+        table.put("metrics", plan.tableMetrics());
+        List<Map<String, Object>> intervals = new ArrayList<>();
+        for (DimensionSlot slot : plan.dimensions()) {
+            if (slot.condition() == null) {
+                continue;
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("label", slot.label());
+            row.put("condition", conditionMap(slot.condition()));
+            intervals.add(row);
+        }
+        table.put("intervals", intervals);
+        return table;
+    }
+
+    private static List<Map<String, Object>> chartDimensions(QueryPlan plan) {
         List<Map<String, Object>> dims = new ArrayList<>();
         for (DimensionSlot slot : plan.dimensions()) {
             Map<String, Object> d = new LinkedHashMap<>();
-            d.put("slotIndex", slot.slotIndex());
-            d.put("role", slot.role().name());
             d.put("label", slot.label());
-            if (slot.columnHeaders() != null && !slot.columnHeaders().isEmpty()) {
-                d.put("columnHeaders", slot.columnHeaders());
-            }
-            if (slot.rowHeaders() != null && !slot.rowHeaders().isEmpty()) {
-                d.put("rowHeaders", slot.rowHeaders());
-            }
             if (slot.condition() != null) {
                 d.put("condition", conditionMap(slot.condition()));
             }
             dims.add(d);
         }
-        root.put("dimensions", dims);
-        if (plan.writeBack() != null) {
-            Map<String, Object> wb = new LinkedHashMap<>();
-            wb.put("tableRows", plan.writeBack().tableRows());
-            wb.put("tableCols", plan.writeBack().tableCols());
-            wb.put("categoryLabels", plan.writeBack().categoryLabels());
-            root.put("writeBack", wb);
-        }
-        return root;
+        return dims;
     }
 
     private static Map<String, Object> conditionMap(QueryCondition c) {

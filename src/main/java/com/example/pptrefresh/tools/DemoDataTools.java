@@ -2,27 +2,19 @@ package com.example.pptrefresh.tools;
 
 import com.example.pptrefresh.funds.FundFactsClient;
 import com.example.pptrefresh.funds.HardcodedFundCodeLookup;
-import com.example.pptrefresh.llm.TaskContext;
-import com.example.pptrefresh.llm.TaskContextHolder;
 import com.example.pptrefresh.query.ChartSeriesData;
 import com.example.pptrefresh.query.QueryPlan;
 import com.example.pptrefresh.query.QueryPlanDataService;
-import com.example.pptrefresh.sample.ZhongOuSampleData;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.example.pptrefresh.query.QueryPlanRequired;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
-/**
- * 演示用数据 Tool：与 {@link com.example.pptrefresh.sample.ZhongOuSampleData} / {@code 偏债混-M1.yaml} 对齐。
- */
+/** 演示用数据 Tool；表格/图表必须带 {@link QueryPlan}。 */
 @Component
 public class DemoDataTools {
 
@@ -153,33 +145,25 @@ public class DemoDataTools {
     }
 
     @Tool(
-            "查询收益率排名表（yield_ranking_table task）。返回 cells 二维数组。"
-                    + "若当前任务上下文含 queryPlan，将按 plan 中每行/列区间条件逐条查数组装 cells。")
+            "查询收益率排名矩阵表（yield_ranking_table）。返回 cells；"
+                    + "按 queryPlan 的 intervals×metrics 查数（横排区间、纵排指标）。")
     public String fetchPerformanceTable(
             @P("基金代码，与用户消息 fundCode 一致") String productCode,
             @P("产品展示名，与用户消息 productDisplayName 一致") String productName,
             @P("报告截止季度，与用户消息 latestQuarter 一致") String latestQuarter,
-            @P("表格行数，与用户消息 dimensions.rows 一致（样例 7）") int tableRows,
-            @P("表格列数，与用户消息 dimensions.cols 一致（样例 6）") int tableCols) {
+            @P("表格行数，与用户消息 dimensions.rows 一致") int tableRows,
+            @P("表格列数，与用户消息 dimensions.cols 一致") int tableCols) {
         try {
+            QueryPlan plan = QueryPlanRequired.fromTaskContext();
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("productCode", productCode);
             m.put("productName", productName);
             m.put("latestQuarter", latestQuarter);
             m.put("requestedTableRows", tableRows);
             m.put("requestedTableCols", tableCols);
-            QueryPlan plan = queryPlanFromContext();
-            if (plan != null) {
-                m.put(
-                        "cells",
-                        queryPlanDataService.buildTableCells(plan, productCode, tableRows, tableCols));
-                m.put("queryPlanUsed", true);
-                m.put("note", "按 queryPlan 逐区间查表（StubQueryPlanDataClient）");
-            } else {
-                m.put("cells", ZhongOuSampleData.YIELD_RANKING_CELLS);
-                m.put("queryPlanUsed", false);
-                m.put("note", "无 queryPlan，回退固定样例 cells");
-            }
+            m.put("cells", queryPlanDataService.buildTableCells(plan, productCode, tableRows, tableCols));
+            m.put("queryPlanUsed", true);
+            m.put("note", "按 queryPlan 逐区间查表");
             return mapper.writeValueAsString(m);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -188,34 +172,26 @@ public class DemoDataTools {
 
     @Tool(
             "查询大类资产配置分组柱状图数据（allocation_chart）。"
-                    + "返回 categories、seriesNames、seriesValues。"
-                    + "若上下文含 queryPlan，按各季度 category 逐点查资产配置。")
+                    + "返回 categories、seriesNames、seriesValues；按 queryPlan 各季度查数。")
     public String fetchAllocationChart(
             @P("基金代码，与用户消息 fundCode 一致") String productCode,
             @P("产品展示名，与用户消息 productDisplayName 一致") String productName,
             @P("报告截止季度，与用户消息 latestQuarter 一致") String latestQuarter,
-            @P("横轴分类个数（样例 4）") int categoryCount,
-            @P("系列个数（样例 3）") int seriesCount,
+            @P("横轴分类个数") int categoryCount,
+            @P("系列个数") int seriesCount,
             @P("可选：queryPlan.writeBack.categoryLabels 的 JSON 数组字符串") String categoryLabelsJson) {
         try {
-            Map<String, Object> root;
-            QueryPlan plan = queryPlanFromContext();
-            if (plan != null) {
-                ChartSeriesData data = queryPlanDataService.buildAllocationChart(plan, productCode);
-                root = chartMap(data);
-                root.put("queryPlanUsed", true);
-                root.put("note", "按 queryPlan 逐季度查资产配置（StubQueryPlanDataClient）");
-            } else {
-                root = new LinkedHashMap<>(mockAllocationChartPayload(categoryLabelsJson));
-                root.put("queryPlanUsed", false);
-                root.put("note", "无 queryPlan，回退固定样例或 categoryLabelsJson");
-            }
+            QueryPlan plan = QueryPlanRequired.fromTaskContext();
+            ChartSeriesData data = queryPlanDataService.buildAllocationChart(plan, productCode);
+            Map<String, Object> root = chartMap(data);
             root.put("chartId", "allocation_chart");
             root.put("productCode", productCode);
             root.put("productName", productName);
             root.put("latestQuarter", latestQuarter);
             root.put("requestedCategoryCount", categoryCount);
             root.put("requestedSeriesCount", seriesCount);
+            root.put("queryPlanUsed", true);
+            root.put("note", "按 queryPlan 逐季度查资产配置");
             return mapper.writeValueAsString(root);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -223,32 +199,21 @@ public class DemoDataTools {
     }
 
     @Tool(
-            "查询累计收益率折线图数据（nav_chart）。返回 categories、seriesNames、seriesValues。"
-                    + "若上下文含 queryPlan，按各月份 category 逐点查累计收益。")
+            "查询累计收益率折线图数据（nav_chart）。返回 categories、seriesNames、seriesValues；"
+                    + "按 queryPlan 各月份查数。")
     public String fetchNavChart(
             @P("基金代码，与用户消息 fundCode 一致") String productCode,
             @P("产品展示名，与用户消息 productDisplayName 一致") String productName,
             @P("数据截止日，与用户消息 latestDate 一致") String latestDate,
             @P("业绩基准名称") String benchmarkName,
-            @P("横轴分类个数（样例 7）") int categoryCount,
-            @P("系列条数（样例 2）") int seriesCount,
+            @P("横轴分类个数") int categoryCount,
+            @P("系列条数") int seriesCount,
             @P("可选：queryPlan.writeBack.categoryLabels 的 JSON 数组字符串") String categoryLabelsJson) {
         try {
-            Map<String, Object> root;
-            QueryPlan plan = queryPlanFromContext();
-            if (plan != null) {
-                ChartSeriesData data =
-                        queryPlanDataService.buildNavChart(plan, productCode, benchmarkName);
-                root = chartMap(data);
-                root.put("queryPlanUsed", true);
-                root.put("note", "按 queryPlan 逐月份查累计收益（StubQueryPlanDataClient）");
-            } else {
-                root =
-                        new LinkedHashMap<>(
-                                mockNavChartPayload(productName, benchmarkName, categoryLabelsJson));
-                root.put("queryPlanUsed", false);
-                root.put("note", "无 queryPlan，回退固定样例或 categoryLabelsJson");
-            }
+            QueryPlan plan = QueryPlanRequired.fromTaskContext();
+            ChartSeriesData data =
+                    queryPlanDataService.buildNavChart(plan, productCode, benchmarkName);
+            Map<String, Object> root = chartMap(data);
             root.put("chartId", "nav_chart");
             root.put("productCode", productCode);
             root.put("productName", productName);
@@ -256,57 +221,12 @@ public class DemoDataTools {
             root.put("benchmarkName", benchmarkName);
             root.put("requestedCategoryCount", categoryCount);
             root.put("requestedSeriesCount", seriesCount);
+            root.put("queryPlanUsed", true);
+            root.put("note", "按 queryPlan 逐月份查累计收益");
             return mapper.writeValueAsString(root);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private Map<String, Object> mockAllocationChartPayload(String categoryLabelsJson) throws Exception {
-        Map<String, Object> chart = new LinkedHashMap<>();
-        List<String> categories = parseCategories(categoryLabelsJson);
-        if (categories == null || categories.isEmpty()) {
-            categories = ZhongOuSampleData.ALLOCATION_CATEGORIES;
-        }
-        chart.put("categories", categories);
-        chart.put("seriesNames", ZhongOuSampleData.ALLOCATION_SERIES_NAMES);
-        chart.put("seriesValues", resizeSeries(ZhongOuSampleData.ALLOCATION_SERIES_VALUES, categories.size()));
-        return chart;
-    }
-
-    private Map<String, Object> mockNavChartPayload(
-            String productName, String benchmarkName, String categoryLabelsJson) throws Exception {
-        String fundSeries =
-                (productName == null || productName.isBlank()) ? "本基金" : "本基金";
-        String bench =
-                (benchmarkName == null || benchmarkName.isBlank()) ? "业绩基准" : benchmarkName.trim();
-        Map<String, Object> chart = new LinkedHashMap<>();
-        List<String> categories = parseCategories(categoryLabelsJson);
-        if (categories == null || categories.isEmpty()) {
-            categories =
-                    List.of(
-                            "2024-05",
-                            "2024-07",
-                            "2024-09",
-                            "2024-11",
-                            "2025-01",
-                            "2025-03",
-                            "2025-05");
-        }
-        int n = categories.size();
-        chart.put("categories", categories);
-        chart.put("seriesNames", List.of(fundSeries, bench));
-        chart.put(
-                "seriesValues",
-                List.of(
-                        linear(0.0, 12.0, n),
-                        linear(0.0, 9.0, n)));
-        return chart;
-    }
-
-    private static QueryPlan queryPlanFromContext() {
-        TaskContext ctx = TaskContextHolder.get();
-        return ctx != null ? ctx.queryPlan() : null;
     }
 
     private static Map<String, Object> chartMap(ChartSeriesData data) {
@@ -315,36 +235,5 @@ public class DemoDataTools {
         chart.put("seriesNames", data.seriesNames());
         chart.put("seriesValues", data.seriesValues());
         return chart;
-    }
-
-    private List<String> parseCategories(String categoryLabelsJson) throws Exception {
-        if (!StringUtils.hasText(categoryLabelsJson)) {
-            return null;
-        }
-        return mapper.readValue(categoryLabelsJson, new TypeReference<List<String>>() {});
-    }
-
-    private static List<List<Double>> resizeSeries(List<List<Double>> source, int size) {
-        List<List<Double>> out = new ArrayList<>();
-        for (List<Double> series : source) {
-            out.add(linear(series.isEmpty() ? 0.0 : series.get(0), series.get(series.size() - 1), size));
-        }
-        return out;
-    }
-
-    private static List<Double> linear(double start, double end, int points) {
-        List<Double> values = new ArrayList<>();
-        if (points <= 0) {
-            return values;
-        }
-        if (points == 1) {
-            values.add(end);
-            return values;
-        }
-        double step = (end - start) / (points - 1);
-        for (int i = 0; i < points; i++) {
-            values.add(start + step * i);
-        }
-        return values;
     }
 }

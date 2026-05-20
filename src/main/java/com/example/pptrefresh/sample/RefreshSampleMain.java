@@ -13,7 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * 本地联调刷新链路（Stub LLM，不调外网）：读取 {@code samples/20260430-偏债混-M1.pptx}，写回到 {@code *-refreshed.pptx}。
+ * 本地联调完整刷新链路（需配置 LLM API，如环境变量 {@code DASHSCOPE_API_KEY}）。
  *
  * <p>IDEA 直接运行 main，或：
  * <pre>
@@ -34,7 +34,6 @@ public final class RefreshSampleMain {
                 args.length >= 2
                         ? Paths.get(args[1])
                         : projectDir.resolve("samples").resolve("20260430-偏债混-M1-refreshed.pptx");
-        // 若默认输出被 PowerPoint 占用，改写到旁路文件
         if (args.length < 2 && Files.exists(output)) {
             try {
                 java.nio.channels.FileChannel.open(
@@ -54,7 +53,6 @@ public final class RefreshSampleMain {
 
         SpringApplication app = new SpringApplication(PptRefreshApplication.class);
         app.setWebApplicationType(WebApplicationType.NONE);
-        app.setAdditionalProfiles("stub-llm");
 
         try (ConfigurableApplicationContext ctx = app.run()) {
             RefreshOrchestrator orchestrator = ctx.getBean(RefreshOrchestrator.class);

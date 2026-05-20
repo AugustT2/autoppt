@@ -1,12 +1,13 @@
 package com.example.pptrefresh.query;
 
-import com.example.pptrefresh.sample.ZhongOuSampleData;
+import com.example.pptrefresh.exception.FailureStage;
+import com.example.pptrefresh.exception.RefreshException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/** 根据 {@link QueryPlan} 逐维度拉数并组装表格 cells / 图表 series。 */
+/** 根据 QueryPlan 中的区间条件与指标列拉数并组装写回 cells / 图表 series。 */
 @Service
 public class QueryPlanDataService {
 
@@ -18,6 +19,16 @@ public class QueryPlanDataService {
 
     public List<List<String>> buildTableCells(
             QueryPlan plan, String fundCode, int tableRows, int tableCols) {
+        QueryPlanRequired.requireTableDataSlots(plan);
+        List<String> metrics = plan.tableMetrics();
+        if (metrics == null || metrics.isEmpty()) {
+            throw new RefreshException(
+                    FailureStage.QUERY_PLAN_BUILD,
+                    "TABLE_METRICS_MISSING",
+                    "QueryPlan 缺少 tableMetrics",
+                    plan.taskId(),
+                    null);
+        }
         List<List<String>> cells = new ArrayList<>();
         List<String> header = tableHeaderFromPlan(plan);
         int colCount = header.isEmpty() ? tableCols : header.size();
@@ -27,7 +38,7 @@ public class QueryPlanDataService {
         boolean columnOriented =
                 plan.dimensions().stream().anyMatch(s -> s.role() == DimensionSlotRole.DATA_COLUMN);
         if (columnOriented) {
-            cells.addAll(buildColumnOrientedRows(plan, fundCode, header, colCount));
+            cells.addAll(buildColumnOrientedRows(plan, fundCode, metrics, colCount));
         } else {
             for (DimensionSlot slot : plan.dimensions()) {
                 if (slot.role() != DimensionSlotRole.DATA_ROW || slot.condition() == null) {
@@ -35,17 +46,40 @@ public class QueryPlanDataService {
                 }
                 PerformanceRowData row =
                         dataClient.fetchPerformanceRow(fundCode, slot.condition());
-                cells.add(
-                        padRow(
-                                List.of(
-                                        slot.label(),
-                                        row.returnPct(),
-                                        row.peerRank(),
-                                        row.percentile()),
-                                colCount));
+                cells.add(buildDataRow(slot.label(), row, metrics, colCount));
             }
         }
         return fitTable(cells, tableRows, tableCols);
+    }
+
+    private List<List<String>> buildColumnOrientedRows(
+            QueryPlan plan, String fundCode, List<String> metrics, int colCount) {
+        List<DimensionSlot> intervals =
+                plan.dimensions().stream()
+                        .filter(s -> s.role() == DimensionSlotRole.DATA_COLUMN && s.condition() != null)
+                        .toList();
+        List<List<String>> rows = new ArrayList<>();
+        for (String metric : metrics) {
+            List<String> row = new ArrayList<>();
+            row.add(metric);
+            for (DimensionSlot slot : intervals) {
+                PerformanceRowData data =
+                        dataClient.fetchPerformanceRow(fundCode, slot.condition());
+                row.add(data.metricValue(metric));
+            }
+            rows.add(padRow(row, colCount));
+        }
+        return rows;
+    }
+
+    private static List<String> buildDataRow(
+            String intervalLabel, PerformanceRowData row, List<String> metrics, int colCount) {
+        List<String> cells = new ArrayList<>();
+        cells.add(intervalLabel);
+        for (String metric : metrics) {
+            cells.add(row.metricValue(metric));
+        }
+        return padRow(cells, colCount);
     }
 
     private static List<String> tableHeaderFromPlan(QueryPlan plan) {
@@ -57,62 +91,6 @@ public class QueryPlanDataService {
             }
         }
         return List.of();
-    }
-
-    /** COLUMN 轴：表头横排区间，数据按「指标行 × 区间列」写回。 */
-    private List<List<String>> buildColumnOrientedRows(
-            QueryPlan plan, String fundCode, List<String> header, int colCount) {
-        List<DimensionSlot> intervals =
-                plan.dimensions().stream()
-                        .filter(s -> s.role() == DimensionSlotRole.DATA_COLUMN && s.condition() != null)
-                        .toList();
-        if (intervals.isEmpty()) {
-            return List.of();
-        }
-        List<String> metricLabels = tableRowHeadersFromPlan(plan);
-        int metricRows = metricLabels.isEmpty() ? 3 : metricLabels.size();
-        List<List<String>> rows = new ArrayList<>();
-        for (int m = 0; m < metricRows; m++) {
-            List<String> row = new ArrayList<>();
-            row.add(metricLabelAt(metricLabels, m));
-            for (DimensionSlot slot : intervals) {
-                PerformanceRowData data =
-                        dataClient.fetchPerformanceRow(fundCode, slot.condition());
-                row.add(metricValueAt(data, m));
-            }
-            rows.add(padRow(row, colCount));
-        }
-        return rows;
-    }
-
-    private static List<String> tableRowHeadersFromPlan(QueryPlan plan) {
-        for (DimensionSlot slot : plan.dimensions()) {
-            if (slot.role() == DimensionSlotRole.HEADER
-                    && slot.rowHeaders() != null
-                    && !slot.rowHeaders().isEmpty()) {
-                return slot.rowHeaders();
-            }
-        }
-        return List.of();
-    }
-
-    private static String metricLabelAt(List<String> metricLabels, int metricIndex) {
-        if (metricIndex < metricLabels.size() && !metricLabels.get(metricIndex).isBlank()) {
-            return metricLabels.get(metricIndex);
-        }
-        return switch (metricIndex) {
-            case 0 -> "收益率";
-            case 1 -> "同类排名";
-            default -> "分位数";
-        };
-    }
-
-    private static String metricValueAt(PerformanceRowData data, int metricIndex) {
-        return switch (metricIndex) {
-            case 0 -> data.returnPct();
-            case 1 -> data.peerRank();
-            default -> data.percentile();
-        };
     }
 
     private static List<String> padRow(List<String> row, int colCount) {
@@ -127,6 +105,7 @@ public class QueryPlanDataService {
     }
 
     public ChartSeriesData buildAllocationChart(QueryPlan plan, String fundCode) {
+        QueryPlanRequired.requireChartCategories(plan, "allocation");
         List<String> categories = new ArrayList<>();
         List<List<Double>> stock = new ArrayList<>();
         List<List<Double>> bond = new ArrayList<>();
@@ -155,14 +134,18 @@ public class QueryPlanDataService {
                 cash.add(List.of(pct[2]));
             }
         }
+        if (categories.isEmpty()) {
+            throw emptyChart(plan, "allocation");
+        }
         return new ChartSeriesData(
                 categories,
-                ZhongOuSampleData.ALLOCATION_SERIES_NAMES,
+                QueryPlanRequired.allocationSeriesNames(),
                 List.of(flattenSeries(stock), flattenSeries(bond), flattenSeries(cash)));
     }
 
     public ChartSeriesData buildNavChart(
             QueryPlan plan, String fundCode, String benchmarkName) {
+        QueryPlanRequired.requireChartCategories(plan, "nav");
         List<String> categories = new ArrayList<>();
         List<Double> fundSeries = new ArrayList<>();
         List<Double> benchSeries = new ArrayList<>();
@@ -186,9 +169,21 @@ public class QueryPlanDataService {
                 benchSeries.add(dataClient.fetchCumulativeReturnPct(fundCode, m, true));
             }
         }
+        if (categories.isEmpty()) {
+            throw emptyChart(plan, "nav");
+        }
         String bench = benchmarkName == null || benchmarkName.isBlank() ? "业绩基准" : benchmarkName;
         return new ChartSeriesData(
                 categories, List.of("本基金", bench), List.of(fundSeries, benchSeries));
+    }
+
+    private static RefreshException emptyChart(QueryPlan plan, String kind) {
+        return new RefreshException(
+                FailureStage.QUERY_PLAN_BUILD,
+                "QUERY_PLAN_CHART_EMPTY",
+                "QueryPlan 未能组装 " + kind + " 图表 categories",
+                plan.taskId(),
+                null);
     }
 
     private static List<Double> flattenSeries(List<List<Double>> perCategory) {
