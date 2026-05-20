@@ -14,19 +14,6 @@ import java.util.Random;
 public class StubQueryPlanDataClient implements QueryPlanDataClient {
 
     @Override
-    public PerformanceRowData fetchPerformanceRow(String fundCode, QueryCondition condition) {
-        Random r = new Random(seed(fundCode, condition.label(), dateKey(condition)));
-        double ret = 5 + r.nextDouble(40);
-        int rank = 1 + r.nextInt(900);
-        int total = 850 + r.nextInt(50);
-        int pct = 10 + r.nextInt(80);
-        return new PerformanceRowData(
-                String.format("+%.1f%%", ret),
-                rank + " / " + total,
-                "前 " + pct + "%");
-    }
-
-    @Override
     public double[] fetchAllocationPercents(String fundCode, String quarter) {
         Random r = new Random(seed(fundCode, "alloc", quarter));
         double stock = 50 + r.nextDouble(30);

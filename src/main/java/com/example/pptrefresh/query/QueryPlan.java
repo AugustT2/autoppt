@@ -12,6 +12,8 @@ public final class QueryPlan {
     private final QueryPlanWriteBack writeBack;
     /** 表格任务：需查询并刷新的指标列（如收益率、同类排名）。 */
     private final List<String> tableMetrics;
+    /** 指标词表 classpath 路径（如 /rules/lexicon/table_metrics.yaml）。 */
+    private final String metricsCatalog;
 
     public QueryPlan(
             String taskId,
@@ -19,7 +21,7 @@ public final class QueryPlan {
             String asOfQuarter,
             List<DimensionSlot> dimensions,
             QueryPlanWriteBack writeBack) {
-        this(taskId, asOfDate, asOfQuarter, dimensions, writeBack, null);
+        this(taskId, asOfDate, asOfQuarter, dimensions, writeBack, null, null);
     }
 
     public QueryPlan(
@@ -29,6 +31,17 @@ public final class QueryPlan {
             List<DimensionSlot> dimensions,
             QueryPlanWriteBack writeBack,
             List<String> tableMetrics) {
+        this(taskId, asOfDate, asOfQuarter, dimensions, writeBack, tableMetrics, null);
+    }
+
+    public QueryPlan(
+            String taskId,
+            LocalDate asOfDate,
+            String asOfQuarter,
+            List<DimensionSlot> dimensions,
+            QueryPlanWriteBack writeBack,
+            List<String> tableMetrics,
+            String metricsCatalog) {
         this.taskId = taskId;
         this.asOfDate = asOfDate;
         this.asOfQuarter = asOfQuarter;
@@ -36,6 +49,7 @@ public final class QueryPlan {
         this.writeBack = writeBack;
         this.tableMetrics =
                 tableMetrics == null ? null : List.copyOf(tableMetrics);
+        this.metricsCatalog = metricsCatalog;
     }
 
     public String taskId() {
@@ -60,5 +74,9 @@ public final class QueryPlan {
 
     public List<String> tableMetrics() {
         return tableMetrics;
+    }
+
+    public String metricsCatalog() {
+        return metricsCatalog;
     }
 }

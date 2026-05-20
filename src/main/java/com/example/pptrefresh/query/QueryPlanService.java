@@ -5,6 +5,7 @@ import com.example.pptrefresh.document.ResolvedTarget;
 import com.example.pptrefresh.document.SlideStructure;
 import com.example.pptrefresh.exception.FailureStage;
 import com.example.pptrefresh.exception.RefreshException;
+import com.example.pptrefresh.query.metric.MetricCatalog;
 import com.example.pptrefresh.rules.DimensionPolicy;
 import com.example.pptrefresh.rules.TaskDefinition;
 import com.example.pptrefresh.rules.TaskType;
@@ -100,13 +101,18 @@ public class QueryPlanService {
         QueryPlanWriteBack writeBack =
                 new QueryPlanWriteBack(
                         table.getNumberOfRows(), table.getNumberOfColumns(), List.of());
+        String metricsLexicon =
+                policy.getMetricsLexicon() == null
+                        ? MetricCatalog.DEFAULT_RESOURCE
+                        : policy.getMetricsLexicon();
         return new QueryPlan(
                 task.getId(),
                 reporting.asOfDate(),
                 reporting.asOfQuarter(),
                 dimensions,
                 writeBack,
-                analysis.metrics());
+                analysis.metrics(),
+                metricsLexicon);
     }
 
     private QueryPlan buildQuarterChartPlan(
@@ -185,6 +191,7 @@ public class QueryPlanService {
         DimensionPolicy p = new DimensionPolicy();
         p.setPolicyType("table_interval_labels");
         p.setLexicon("/rules/lexicon/fund_performance_rows.yaml");
+        p.setMetricsLexicon(MetricCatalog.DEFAULT_RESOURCE);
         return p;
     }
 

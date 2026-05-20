@@ -5,8 +5,6 @@ package com.example.pptrefresh.query;
  */
 public interface QueryPlanDataClient {
 
-    PerformanceRowData fetchPerformanceRow(String fundCode, QueryCondition condition);
-
     /** 某季度资产配置（股票/债券/现金及其他，百分比）。 */
     double[] fetchAllocationPercents(String fundCode, String quarter);
 

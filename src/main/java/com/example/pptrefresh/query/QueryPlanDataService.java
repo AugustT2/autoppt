@@ -2,26 +2,33 @@ package com.example.pptrefresh.query;
 
 import com.example.pptrefresh.exception.FailureStage;
 import com.example.pptrefresh.exception.RefreshException;
+import com.example.pptrefresh.query.metric.MetricCatalog;
+import com.example.pptrefresh.query.metric.ResolvedMetric;
+import com.example.pptrefresh.query.metric.TableMetricFetchService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /** 根据 QueryPlan 中的区间条件与指标列拉数并组装写回 cells / 图表 series。 */
 @Service
 public class QueryPlanDataService {
 
     private final QueryPlanDataClient dataClient;
+    private final TableMetricFetchService tableMetricFetchService;
 
-    public QueryPlanDataService(QueryPlanDataClient dataClient) {
+    public QueryPlanDataService(
+            QueryPlanDataClient dataClient, TableMetricFetchService tableMetricFetchService) {
         this.dataClient = dataClient;
+        this.tableMetricFetchService = tableMetricFetchService;
     }
 
     public List<List<String>> buildTableCells(
             QueryPlan plan, String fundCode, int tableRows, int tableCols) {
         QueryPlanRequired.requireTableDataSlots(plan);
-        List<String> metrics = plan.tableMetrics();
-        if (metrics == null || metrics.isEmpty()) {
+        List<String> metricLabels = plan.tableMetrics();
+        if (metricLabels == null || metricLabels.isEmpty()) {
             throw new RefreshException(
                     FailureStage.QUERY_PLAN_BUILD,
                     "TABLE_METRICS_MISSING",
@@ -29,6 +36,14 @@ public class QueryPlanDataService {
                     plan.taskId(),
                     null);
         }
+        MetricCatalog catalog =
+                MetricCatalog.load(
+                        plan.metricsCatalog() != null
+                                ? plan.metricsCatalog()
+                                : MetricCatalog.DEFAULT_RESOURCE);
+        List<ResolvedMetric> resolved =
+                tableMetricFetchService.resolveLabels(catalog, metricLabels);
+
         List<List<String>> cells = new ArrayList<>();
         List<String> header = tableHeaderFromPlan(plan);
         int colCount = header.isEmpty() ? tableCols : header.size();
@@ -38,48 +53,54 @@ public class QueryPlanDataService {
         boolean columnOriented =
                 plan.dimensions().stream().anyMatch(s -> s.role() == DimensionSlotRole.DATA_COLUMN);
         if (columnOriented) {
-            cells.addAll(buildColumnOrientedRows(plan, fundCode, metrics, colCount));
+            cells.addAll(buildColumnOrientedRows(plan, fundCode, resolved, colCount));
         } else {
-            for (DimensionSlot slot : plan.dimensions()) {
-                if (slot.role() != DimensionSlotRole.DATA_ROW || slot.condition() == null) {
-                    continue;
-                }
-                PerformanceRowData row =
-                        dataClient.fetchPerformanceRow(fundCode, slot.condition());
-                cells.add(buildDataRow(slot.label(), row, metrics, colCount));
-            }
+            cells.addAll(buildRowOrientedRows(plan, fundCode, resolved, colCount));
         }
         return fitTable(cells, tableRows, tableCols);
     }
 
-    private List<List<String>> buildColumnOrientedRows(
-            QueryPlan plan, String fundCode, List<String> metrics, int colCount) {
+    private List<List<String>>  buildColumnOrientedRows(
+            QueryPlan plan, String fundCode, List<ResolvedMetric> metrics, int colCount) {
         List<DimensionSlot> intervals =
                 plan.dimensions().stream()
                         .filter(s -> s.role() == DimensionSlotRole.DATA_COLUMN && s.condition() != null)
                         .toList();
+        List<Map<String, String>> valuesByInterval = new ArrayList<>();
+        for (DimensionSlot slot : intervals) {
+            valuesByInterval.add(
+                    tableMetricFetchService.fetchForInterval(
+                            fundCode, slot.condition(), metrics));
+        }
         List<List<String>> rows = new ArrayList<>();
-        for (String metric : metrics) {
+        for (ResolvedMetric metric : metrics) {
             List<String> row = new ArrayList<>();
-            row.add(metric);
-            for (DimensionSlot slot : intervals) {
-                PerformanceRowData data =
-                        dataClient.fetchPerformanceRow(fundCode, slot.condition());
-                row.add(data.metricValue(metric));
+            row.add(metric.displayLabel());
+            for (Map<String, String> values : valuesByInterval) {
+                row.add(values.getOrDefault(metric.metricId(), ""));
             }
             rows.add(padRow(row, colCount));
         }
         return rows;
     }
 
-    private static List<String> buildDataRow(
-            String intervalLabel, PerformanceRowData row, List<String> metrics, int colCount) {
-        List<String> cells = new ArrayList<>();
-        cells.add(intervalLabel);
-        for (String metric : metrics) {
-            cells.add(row.metricValue(metric));
+    private List<List<String>> buildRowOrientedRows(
+            QueryPlan plan, String fundCode, List<ResolvedMetric> metrics, int colCount) {
+        List<List<String>> rows = new ArrayList<>();
+        for (DimensionSlot slot : plan.dimensions()) {
+            if (slot.role() != DimensionSlotRole.DATA_ROW || slot.condition() == null) {
+                continue;
+            }
+            Map<String, String> values =
+                    tableMetricFetchService.fetchForInterval(fundCode, slot.condition(), metrics);
+            List<String> row = new ArrayList<>();
+            row.add(slot.label());
+            for (ResolvedMetric metric : metrics) {
+                row.add(values.getOrDefault(metric.metricId(), ""));
+            }
+            rows.add(padRow(row, colCount));
         }
-        return padRow(cells, colCount);
+        return rows;
     }
 
     private static List<String> tableHeaderFromPlan(QueryPlan plan) {

@@ -48,8 +48,9 @@ tasks:
     intent: "更新「收益率排名（同类偏股混合）」矩阵表全部单元格：横轴区间列为任职以来、过去一年、过去两年、过去三年；纵轴指标行为收益率、业绩排名、偏债混合基金指数、风险回报、最大回撤；行列结构与模板一致"
     dimensionPolicy:
       policyType: table_interval_labels
-      # 表格布局由 Java 读全表 + LLM 推断；仅需词表映射区间标签
+      # 表格布局由 Java 读全表 + LLM 推断；区间/指标各一个词表
       lexicon: /rules/lexicon/fund_performance_rows.yaml
+      metricsLexicon: /rules/lexicon/table_metrics.yaml
 
 #  - id: allocation_chart
 #    type: chart

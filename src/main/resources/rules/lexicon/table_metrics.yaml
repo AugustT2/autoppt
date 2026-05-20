@@ -1,0 +1,17 @@
+# PPT 表头文案 → 内部 metricId + 取数 provider（对接真实 API 时替换对应 Provider 实现）
+metrics:
+  收益率:
+    id: return_pct
+    provider: performance
+  业绩排名:
+    id: peer_rank
+    provider: performance
+  偏债混合基金指数:
+    id: bench_return
+    provider: index
+  风险回报:
+    id: risk_return
+    provider: risk
+  最大回撤:
+    id: max_drawdown
+    provider: risk
