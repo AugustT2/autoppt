@@ -16,6 +16,12 @@ public class TaskDefinition {
     private String tool;
     /** 可选：deck 特例说明（非工具参数列表）。 */
     private String hints;
+    /** 可选：表格/图表维度与查询条件组装策略。 */
+    private DimensionPolicy dimensionPolicy;
+    /**
+     * {@link TextReplaceMode#replace_labeled_number} 时必填，如「最新规模」；只替换该标签后的数字。
+     */
+    private String fieldLabel;
 
     public String getId() {
         return id;
@@ -95,5 +101,21 @@ public class TaskDefinition {
 
     public void setHints(String hints) {
         this.hints = hints;
+    }
+
+    public DimensionPolicy getDimensionPolicy() {
+        return dimensionPolicy;
+    }
+
+    public void setDimensionPolicy(DimensionPolicy dimensionPolicy) {
+        this.dimensionPolicy = dimensionPolicy;
+    }
+
+    public String getFieldLabel() {
+        return fieldLabel;
+    }
+
+    public void setFieldLabel(String fieldLabel) {
+        this.fieldLabel = fieldLabel;
     }
 }

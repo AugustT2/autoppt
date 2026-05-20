@@ -5,6 +5,7 @@ import com.example.pptrefresh.exception.RefreshException;
 import com.example.pptrefresh.tools.DemoToolExecutor;
 import com.example.pptrefresh.tools.ToolCatalog;
 import com.example.pptrefresh.write.TaskWritePayload;
+import com.example.pptrefresh.write.TaskWritePayloadEnricher;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.AiMessage;
@@ -34,21 +35,27 @@ public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
     private final WritePayloadParser parser;
     private final DemoToolExecutor toolExecutor;
     private final ToolCatalog toolCatalog;
-    private final PromptBuilder promptBuilder = new PromptBuilder();
+    private final PromptBuilder promptBuilder;
+    private final TaskWritePayloadEnricher payloadEnricher;
 
     public LangChain4jLlmTaskRunner(
             ChatModel chatModel,
             WritePayloadParser parser,
             DemoToolExecutor toolExecutor,
-            ToolCatalog toolCatalog) {
+            ToolCatalog toolCatalog,
+            PromptBuilder promptBuilder,
+            TaskWritePayloadEnricher payloadEnricher) {
         this.chatModel = chatModel;
         this.parser = parser;
         this.toolExecutor = toolExecutor;
         this.toolCatalog = toolCatalog;
+        this.promptBuilder = promptBuilder;
+        this.payloadEnricher = payloadEnricher;
     }
 
     @Override
     public TaskWritePayload fetch(TaskContext context) {
+        TaskContextHolder.set(context);
         String configuredTool = context.task().getTool();
         boolean strict = !toolCatalog.isAgentMode(configuredTool);
         List<ToolSpecification> taskTools = toolCatalog.resolveForTask(configuredTool);
@@ -62,11 +69,14 @@ public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
                                     context.productDisplayName(),
                                     context.fundCode(),
                                     context.timeContext(),
+                                    context.reportingContext(),
+                                    context.queryPlan(),
                                     context.task(),
                                     context.structure())));
 
             ChatRequest.Builder requestBuilder =
                     ChatRequest.builder().messages(messages).toolSpecifications(taskTools);
+            String lastDataToolResult = null;
 
             for (int round = 0; round < MAX_TOOL_ROUNDS; round++) {
                 ChatResponse response = chatModel.chat(requestBuilder.build());
@@ -76,7 +86,8 @@ public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
                 if (!ai.hasToolExecutionRequests()) {
                     String text = ai.text();
                     if (text != null && !text.isBlank()) {
-                        return parser.parse(context.task(), text);
+                        TaskWritePayload payload = parser.parse(context.task(), text);
+                        return payloadEnricher.enrich(context, payload, lastDataToolResult);
                     }
                     throw new RefreshException(
                             FailureStage.TASK_LLM,
@@ -99,6 +110,9 @@ public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
                                 null);
                     }
                     String result = toolExecutor.execute(toolRequest.name(), toolRequest.arguments());
+                    if (TaskWritePayloadEnricher.isDataToolForTask(context.task(), toolRequest.name())) {
+                        lastDataToolResult = result;
+                    }
                     messages.add(ToolExecutionResultMessage.from(toolRequest, result));
                 }
                 requestBuilder =
@@ -119,6 +133,8 @@ public class LangChain4jLlmTaskRunner implements LlmTaskRunner {
                     "LangChain4j 调用失败: " + e.getMessage(),
                     context.task().getId(),
                     e);
+        } finally {
+            TaskContextHolder.clear();
         }
     }
 }

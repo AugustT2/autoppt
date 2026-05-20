@@ -1,9 +1,13 @@
 package com.example.pptrefresh.config;
 
+import com.example.pptrefresh.funds.FundFactsClient;
+import com.example.pptrefresh.query.QueryPlanDataService;
 import com.example.pptrefresh.llm.LangChain4jLlmTaskRunner;
 import com.example.pptrefresh.llm.LlmTaskRunner;
+import com.example.pptrefresh.llm.PromptBuilder;
 import com.example.pptrefresh.llm.StubLlmTaskRunner;
 import com.example.pptrefresh.llm.WritePayloadParser;
+import com.example.pptrefresh.write.TaskWritePayloadEnricher;
 import com.example.pptrefresh.tools.DemoDataTools;
 import com.example.pptrefresh.tools.DemoToolExecutor;
 import com.example.pptrefresh.tools.ToolCatalog;
@@ -32,6 +36,10 @@ public class PptRefreshConfiguration {
             WritePayloadParser writePayloadParser,
             DemoToolExecutor demoToolExecutor,
             ToolCatalog toolCatalog,
+            PromptBuilder promptBuilder,
+            TaskWritePayloadEnricher payloadEnricher,
+            FundFactsClient fundFactsClient,
+            QueryPlanDataService queryPlanDataService,
             @Autowired(required = false) ChatModel chatModel) {
         if (properties.getLlm().isEnabled()) {
             if (chatModel == null) {
@@ -39,8 +47,13 @@ public class PptRefreshConfiguration {
                         "ppt.refresh.llm.enabled=true 但未创建 ChatModel：请配置 langchain4j.open-ai.chat-model.api-key");
             }
             return new LangChain4jLlmTaskRunner(
-                    chatModel, writePayloadParser, demoToolExecutor, toolCatalog);
+                    chatModel,
+                    writePayloadParser,
+                    demoToolExecutor,
+                    toolCatalog,
+                    promptBuilder,
+                    payloadEnricher);
         }
-        return new StubLlmTaskRunner();
+        return new StubLlmTaskRunner(fundFactsClient, queryPlanDataService);
     }
 }

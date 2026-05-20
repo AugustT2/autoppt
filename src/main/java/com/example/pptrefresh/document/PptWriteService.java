@@ -66,22 +66,28 @@ public class PptWriteService {
         if (original == null) {
             original = "";
         }
-        String result;
         if (task.getMode() == TextReplaceMode.replace_all) {
-            result = newText;
-        } else {
-            int idx = original.indexOf(anchor);
-            if (idx < 0) {
-                throw new RefreshException(
-                        FailureStage.TASK_WRITE,
-                        "ANCHOR_MISSING_AT_WRITE",
-                        "写回时锚点不存在",
-                        task.getId(),
-                        null);
-            }
-            result = original.substring(0, idx + anchor.length()) + newText;
+            TextStylePreserver.setShapeText(text, newText);
+            return;
         }
-        TextStylePreserver.setShapeText(text, result);
+        if (task.getMode() == TextReplaceMode.replace_labeled_number) {
+            String label =
+                    task.getFieldLabel() != null && !task.getFieldLabel().isBlank()
+                            ? task.getFieldLabel()
+                            : anchor;
+            TextStylePreserver.replaceLabeledNumber(text, label, newText);
+            return;
+        }
+        int idx = original.indexOf(anchor);
+        if (idx < 0) {
+            throw new RefreshException(
+                    FailureStage.TASK_WRITE,
+                    "ANCHOR_MISSING_AT_WRITE",
+                    "写回时锚点不存在",
+                    task.getId(),
+                    null);
+        }
+        TextStylePreserver.replaceAfterAnchor(text, anchor, newText);
     }
 
     private void applyTable(XSLFTable table, List<List<String>> cells) {

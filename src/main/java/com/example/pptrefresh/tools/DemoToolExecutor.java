@@ -43,6 +43,12 @@ public class DemoToolExecutor {
                         "latestQuarter"));
         tools.add(
                 wrapFunction(
+                        "fetchFundLatestScale",
+                        "查询最新基金规模数字（replace_labeled_number task）",
+                        "productCode",
+                        "fieldLabel"));
+        tools.add(
+                wrapFunction(
                         "fetchStrategyAfterAnchor",
                         "查询投资范围及策略正文（strategy task）",
                         "productCode",
@@ -114,6 +120,10 @@ public class DemoToolExecutor {
                         args.path("productCode").asText(""),
                         args.path("productName").asText(""),
                         args.path("latestQuarter").asText(""));
+            case "fetchFundLatestScale":
+                return tools.fetchFundLatestScale(
+                        args.path("productCode").asText(""),
+                        args.path("fieldLabel").asText("最新规模"));
             case "fetchStrategyAfterAnchor":
                 return tools.fetchStrategyAfterAnchor(
                         args.path("productCode").asText(""),
@@ -131,17 +141,28 @@ public class DemoToolExecutor {
                         args.path("productName").asText(""),
                         args.path("latestQuarter").asText(""),
                         args.path("categoryCount").asInt(4),
-                        args.path("seriesCount").asInt(4));
+                        args.path("seriesCount").asInt(3),
+                        optionalText(args, "categoryLabelsJson"));
             case "fetchNavChart":
                 return tools.fetchNavChart(
                         args.path("productCode").asText(""),
                         args.path("productName").asText(""),
                         args.path("latestDate").asText(""),
                         args.path("benchmarkName").asText("万得混合债券型二级指数"),
-                        args.path("categoryCount").asInt(6),
-                        args.path("seriesCount").asInt(2));
+                        args.path("categoryCount").asInt(7),
+                        args.path("seriesCount").asInt(2),
+                        optionalText(args, "categoryLabelsJson"));
             default:
                 throw new IllegalArgumentException("未知 tool: " + name);
         }
+    }
+
+    private static String optionalText(JsonNode args, String field) {
+        JsonNode node = args.get(field);
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String text = node.asText();
+        return text.isBlank() ? null : text;
     }
 }

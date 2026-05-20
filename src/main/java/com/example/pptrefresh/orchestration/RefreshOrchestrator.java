@@ -19,6 +19,12 @@ import com.example.pptrefresh.naming.WhitelistRegistry;
 import com.example.pptrefresh.rules.DeckRules;
 import com.example.pptrefresh.rules.RulesLoader;
 import com.example.pptrefresh.rules.TaskDefinition;
+import com.example.pptrefresh.rules.TextReplaceMode;
+import com.example.pptrefresh.query.QueryPlan;
+import com.example.pptrefresh.query.QueryPlanService;
+import com.example.pptrefresh.query.ReportingContext;
+import com.example.pptrefresh.query.ReportingContextBuilder;
+import com.example.pptrefresh.rules.TaskType;
 import com.example.pptrefresh.time.TimeContext;
 import com.example.pptrefresh.time.TimeRuleResolver;
 import com.example.pptrefresh.write.TaskWritePayload;
@@ -51,6 +57,8 @@ public class RefreshOrchestrator {
     private final WritePayloadValidator payloadValidator;
     private final PptWriteService pptWriteService;
     private final FailureReportWriter failureReportWriter;
+    private final ReportingContextBuilder reportingContextBuilder;
+    private final QueryPlanService queryPlanService;
 
     public RefreshOrchestrator(
             PptRefreshProperties properties,
@@ -61,7 +69,9 @@ public class RefreshOrchestrator {
             LlmTaskRunner llmTaskRunner,
             WritePayloadValidator payloadValidator,
             PptWriteService pptWriteService,
-            FailureReportWriter failureReportWriter) {
+            FailureReportWriter failureReportWriter,
+            ReportingContextBuilder reportingContextBuilder,
+            QueryPlanService queryPlanService) {
         this.properties = properties;
         this.rulesLoader = rulesLoader;
         this.timeRuleResolver = timeRuleResolver;
@@ -71,6 +81,8 @@ public class RefreshOrchestrator {
         this.payloadValidator = payloadValidator;
         this.pptWriteService = pptWriteService;
         this.failureReportWriter = failureReportWriter;
+        this.reportingContextBuilder = reportingContextBuilder;
+        this.queryPlanService = queryPlanService;
     }
 
     public RefreshJobResult run(RefreshJobRequest request) {
@@ -116,21 +128,36 @@ public class RefreshOrchestrator {
             try (InputStream in = Files.newInputStream(workCopy);
                     XMLSlideShow ppt = new XMLSlideShow(in)) {
                 resolved = productNameResolver.resolve(ppt, rules);
+                ReportingContext reporting =
+                        reportingContextBuilder.build(
+                                rules.getReporting(), time, resolved.fundCode());
                 log.info(
-                        "Resolved product displayName={} fundCode={}",
+                        "Resolved product displayName={} fundCode={} asOfDate={} asOfQuarter={}",
                         resolved.displayName(),
-                        resolved.fundCode());
+                        resolved.fundCode(),
+                        reporting.asOfDate(),
+                        reporting.asOfQuarter());
                 for (TaskDefinition task : rules.getTasks()) {
                     ResolvedTarget target =
                             targetResolver.resolve(ppt, properties.getSlideIndexBase(), task);
                     SlideStructure structure = target.structure();
+                    QueryPlan queryPlan = null;
+                    if (task.getType() == TaskType.table || task.getType() == TaskType.chart) {
+                        queryPlan = queryPlanService.build(task, reporting, target);
+                        log.debug(
+                                "QueryPlan task={} dimensions={}",
+                                task.getId(),
+                                queryPlan.dimensions().size());
+                    }
                     TaskWritePayload payload =
                             llmTaskRunner.fetch(
                                     new TaskContext(
                                             parsed.deckType(),
                                             resolved.displayName(),
                                             resolved.fundCode(),
-                                            time,
+                                            reporting.toTimeContext(),
+                                            reporting,
+                                            queryPlan,
                                             task,
                                             structure));
                     if (task.getType() == com.example.pptrefresh.rules.TaskType.table) {

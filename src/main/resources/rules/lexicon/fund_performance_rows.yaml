@@ -1,0 +1,14 @@
+labels:
+  近一周: ROLLING_7D
+  近一月: ROLLING_1M
+  近三月: ROLLING_3M
+  近六月: ROLLING_6M
+  近一年: ROLLING_1Y
+  近两年: ROLLING_2Y
+  近三年: ROLLING_3Y
+  近五年: ROLLING_5Y
+  今年以来: YTD
+  成立以来: SINCE_INCEPTION
+  任职以来: SINCE_MANAGER_TENURE
+  2024年: CALENDAR_YEAR_2024
+  2023年: CALENDAR_YEAR_2023

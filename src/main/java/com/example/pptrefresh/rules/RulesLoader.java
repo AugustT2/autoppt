@@ -61,10 +61,14 @@ public class RulesLoader {
         } catch (RefreshException e) {
             throw e;
         } catch (Exception e) {
+            String detail = e.getMessage();
+            if (e.getCause() != null && e.getCause().getMessage() != null) {
+                detail = detail + " — " + e.getCause().getMessage();
+            }
             throw new RefreshException(
                     FailureStage.RULES_LOAD,
                     "DECK_RULES_IO",
-                    "无法加载规则: " + rulesFileName,
+                    "无法加载规则: " + rulesFileName + " (" + detail + ")",
                     null,
                     e);
         }

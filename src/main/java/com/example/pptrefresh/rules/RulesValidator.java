@@ -103,6 +103,10 @@ public class RulesValidator {
         if (task.getMode() == null) {
             throw schemaError("text 任务需要 mode: " + task.getId());
         }
+        if (task.getMode() == TextReplaceMode.replace_labeled_number
+                && !StringUtils.hasText(task.getFieldLabel())) {
+            throw schemaError("replace_labeled_number 需要 fieldLabel: " + task.getId());
+        }
     }
 
     private void validateTable(TaskDefinition task) {

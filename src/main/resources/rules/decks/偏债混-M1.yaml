@@ -14,6 +14,11 @@ timeRules:
   - latestQuarter
   - latestDate
 
+reporting:
+  managerTenureRule: EARLIEST
+  fundInceptionDateOverride: "2019-06-12"
+  managerTenureStartOverride: "2020-01-15"
+
 tasks:
   - id: title
     type: text
@@ -30,17 +35,38 @@ tasks:
     mode: after_anchor
     intent: "更新基金类型、成立日、规模、基金经理、业绩比较基准、风险等级、托管人等（勿改首行产品线-产品名）"
 
+  - id: fund_latest_scale
+    type: text
+    slideIndex: 0
+    anchorText: "最新规模"
+    fieldLabel: "最新规模"
+    mode: replace_labeled_number
+    intent: "仅将「最新规模」后的数字更新为按 fundCode 查询的最新规模；勿改标签、单位及其它字段"
+
   - id: yield_ranking_table
     type: table
     slideIndex: 0
     tableOrdinal: 1
     intent: "更新「收益率排名」表全部单元格（列：区间、收益率、同类排名、分位数；行数与模板一致）"
+    dimensionPolicy:
+      policyType: table_interval_labels
+      #时间标签按行纵向排列（在某一列中）
+      labelAxis: ROW
+      #读取第 0 列（索引从 0 开始）
+      labelIndex: 0
+      #跳过前 1 行表头，从第 1 行开始读取
+      headerSpan: 1
+      #时间标签 → 查询策略 的映射字典
+      lexicon: /rules/lexicon/fund_performance_rows.yaml
 
   - id: allocation_chart
     type: chart
     slideIndex: 0
     chartOrdinal: 1
     intent: "更新「过去4个季度资产类别配置」分组柱状图（横轴 categories=季度如2024Q2；series=股票/债券/现金及其他）"
+    dimensionPolicy:
+      policyType: quarter_series
+      categoryCount: 4
 
   - id: nav_chart
     type: chart
@@ -48,3 +74,5 @@ tasks:
     chartOrdinal: 2
     intent: "更新「累计收益率走势」折线图（本基金与业绩基准两条系列）"
     hints: "折线系列名：本基金=productDisplayName；业绩基准=业绩比较基准或沪深300复合基准"
+    dimensionPolicy:
+      policyType: month_series

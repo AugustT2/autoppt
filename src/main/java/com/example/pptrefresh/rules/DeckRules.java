@@ -9,6 +9,7 @@ public class DeckRules {
     private String version;
     private List<String> timeRules = new ArrayList<>();
     private ProductNameResolution productNameResolution;
+    private ReportingRules reporting;
     private List<TaskDefinition> tasks = new ArrayList<>();
 
     public String getDeckType() {
@@ -41,6 +42,14 @@ public class DeckRules {
 
     public void setProductNameResolution(ProductNameResolution productNameResolution) {
         this.productNameResolution = productNameResolution;
+    }
+
+    public ReportingRules getReporting() {
+        return reporting;
+    }
+
+    public void setReporting(ReportingRules reporting) {
+        this.reporting = reporting;
     }
 
     public List<TaskDefinition> getTasks() {
