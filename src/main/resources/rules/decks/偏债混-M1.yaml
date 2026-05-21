@@ -18,54 +18,39 @@ reporting:
   managerTenureRule: EARLIEST
 
 tasks:
-#  - id: title
-#    type: text
-#    slideIndex: 0
-#    anchorText: "基金业绩说明"
-#    mode: replace_all
-#    intent: "更新页主标题（示例页可为「基金业绩说明」及数据截止说明）"
+  - id: fund_latest_scale
+    type: text
+    slideIndex: 0
+    anchorText: "最新规模"
+    fieldLabel: "最新规模"
+    mode: replace_labeled_number
+    intent: "仅将「最新规模」后的数字更新为按 fundCode 查询的最新规模；勿改标签、单位及其它字段"
 
-#  - id: fund_meta
-#    type: text
-#    slideIndex: 0
-#    # 保留标题「基金基本情况」与首行「产品线-产品名」；从「基金类型：」起替换后续字段
-#    anchorText: "基金类型："
-#    mode: after_anchor
-#    intent: "更新基金类型、成立日、规模、基金经理、业绩比较基准、风险等级、托管人等（勿改首行产品线-产品名）"
+  - id: yield_ranking_table
+    type: table
+    slideIndex: 0
+    tableOrdinal: 1
+    intent: "更新「收益率排名（同类偏股混合）」矩阵表全部单元格：横轴区间列为任职以来、过去一年、过去两年、过去三年；纵轴指标行为收益率、业绩排名、偏债混合基金指数、风险回报、最大回撤；行列结构与模板一致"
+    dimensionPolicy:
+      policyType: table_interval_labels
+      # 表格布局由 Java 读全表 + LLM 推断；区间/指标各一个词表
+      lexicon: /rules/lexicon/fund_performance_rows.yaml
+      metricsLexicon: /rules/lexicon/table_metrics.yaml
 
-#  - id: fund_latest_scale
-#    type: text
-#    slideIndex: 0
-#    anchorText: "最新规模"
-#    fieldLabel: "最新规模"
-#    mode: replace_labeled_number
-#    intent: "仅将「最新规模」后的数字更新为按 fundCode 查询的最新规模；勿改标签、单位及其它字段"
+  - id: allocation_chart
+    type: chart
+    slideIndex: 0
+    chartOrdinal: 1
+    intent: "更新右上「大类资产配置情况（%）」分组柱状图数据（勿改标题与版式）：横轴=股票、可转债、利率债、信用债；系列=以 asOfQuarter 为右端向前滚动 4 个季度；系列值为各季度大类资产占比"
+    dimensionPolicy:
+      policyType: asset_class_allocation
+      chartCategories:
+        - 股票
+        - 可转债
+        - 利率债
+        - 信用债
+      categoryCount: 4
 
-#  - id: yield_ranking_table
-#    type: table
-#    slideIndex: 0
-#    tableOrdinal: 1
-#    intent: "更新「收益率排名（同类偏股混合）」矩阵表全部单元格：横轴区间列为任职以来、过去一年、过去两年、过去三年；纵轴指标行为收益率、业绩排名、偏债混合基金指数、风险回报、最大回撤；行列结构与模板一致"
-#    dimensionPolicy:
-#      policyType: table_interval_labels
-#      # 表格布局由 Java 读全表 + LLM 推断；区间/指标各一个词表
-#      lexicon: /rules/lexicon/fund_performance_rows.yaml
-#      metricsLexicon: /rules/lexicon/table_metrics.yaml
-
-#  - id: allocation_chart
-#    type: chart
-#    slideIndex: 0
-#    chartOrdinal: 1
-#    intent: "更新右上「大类资产配置情况（%）」分组柱状图数据（勿改标题与版式）：横轴=股票、可转债、利率债、信用债；系列=以 asOfQuarter 为右端向前滚动 4 个季度；系列值为各季度大类资产占比"
-#    dimensionPolicy:
-#      policyType: asset_class_allocation
-#      chartCategories:
-#        - 股票
-#        - 可转债
-#        - 利率债
-#        - 信用债
-#      categoryCount: 4
-#
   - id: nav_chart
     type: chart
     slideIndex: 0
