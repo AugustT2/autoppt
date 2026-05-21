@@ -171,7 +171,7 @@ public class DemoDataTools {
     }
 
     @Tool(
-            "查询大类资产配置分组柱状图数据（allocation_chart）。"
+            "查询大类资产配置分组柱状图（allocation_chart）：categories=股票/可转债/利率债/信用债，series=季度。"
                     + "返回 categories、seriesNames、seriesValues；按 queryPlan 各季度查数。")
     public String fetchAllocationChart(
             @P("基金代码，与用户消息 fundCode 一致") String productCode,
@@ -200,7 +200,7 @@ public class DemoDataTools {
 
     @Tool(
             "查询累计收益率折线图数据（nav_chart）。返回 categories、seriesNames、seriesValues；"
-                    + "按 queryPlan 各月份查数。")
+                    + "按 queryPlan.navTimeRange 起止日批量取数，再对齐横轴标签。")
     public String fetchNavChart(
             @P("基金代码，与用户消息 fundCode 一致") String productCode,
             @P("产品展示名，与用户消息 productDisplayName 一致") String productName,
@@ -211,8 +211,7 @@ public class DemoDataTools {
             @P("可选：queryPlan.writeBack.categoryLabels 的 JSON 数组字符串") String categoryLabelsJson) {
         try {
             QueryPlan plan = QueryPlanRequired.fromTaskContext();
-            ChartSeriesData data =
-                    queryPlanDataService.buildNavChart(plan, productCode, benchmarkName);
+            ChartSeriesData data = queryPlanDataService.buildNavChart(plan, productCode);
             Map<String, Object> root = chartMap(data);
             root.put("chartId", "nav_chart");
             root.put("productCode", productCode);

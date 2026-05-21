@@ -143,7 +143,9 @@ public class RefreshOrchestrator {
                     SlideStructure structure = target.structure();
                     QueryPlan queryPlan = null;
                     if (task.getType() == TaskType.table || task.getType() == TaskType.chart) {
-                        queryPlan = queryPlanService.build(task, reporting, target);
+                        queryPlan =
+                                queryPlanService.build(
+                                        task, reporting, target, resolved.displayName());
                         log.debug(
                                 "QueryPlan task={} dimensions={}",
                                 task.getId(),

@@ -32,7 +32,7 @@ public class PromptBuilder {
                     + "taskId=fund_meta → fetchFundMetaAfterAnchor；"
                     + "mode=replace_labeled_number 或 taskId=fund_latest_scale → fetchFundLatestScale，写回 text 仅数字；"
                     + "taskType=table → fetchPerformanceTable；"
-                    + "taskType=chart 且 intent 含资产配置或柱状图 → fetchAllocationChart（categories=季度，series=资产类别）；"
+                    + "taskType=chart 且 allocation_chart → fetchAllocationChart（categories=股票/可转债/利率债/信用债，series=季度如2025Q2）；"
                     + "含净值、累计收益或折线 → fetchNavChart。"
                     + "禁止编造工具结果中未出现的字段；无法完成时仍输出合法 JSON 并在 text 中说明原因。";
 

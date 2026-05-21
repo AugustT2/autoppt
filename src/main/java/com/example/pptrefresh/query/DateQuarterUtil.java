@@ -54,15 +54,6 @@ final class DateQuarterUtil {
         };
     }
 
-    static List<String> rollingMonthsEndingAt(LocalDate asOfDate, int count) {
-        YearMonth end = YearMonth.from(asOfDate);
-        List<String> out = new ArrayList<>(count);
-        for (int i = count - 1; i >= 0; i--) {
-            out.add(end.minusMonths(i).format(MONTH));
-        }
-        return out;
-    }
-
     static LocalDate monthEndDate(String yyyyMm) {
         YearMonth ym = YearMonth.parse(yyyyMm, MONTH);
         return ym.atEndOfMonth();

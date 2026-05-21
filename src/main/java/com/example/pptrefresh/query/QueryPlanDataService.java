@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** 根据 QueryPlan 中的区间条件与指标列拉数并组装写回 cells / 图表 series。 */
 @Service
@@ -65,7 +66,7 @@ public class QueryPlanDataService {
         List<DimensionSlot> intervals =
                 plan.dimensions().stream()
                         .filter(s -> s.role() == DimensionSlotRole.DATA_COLUMN && s.condition() != null)
-                        .toList();
+                        .collect(Collectors.toList());
         List<Map<String, String>> valuesByInterval = new ArrayList<>();
         for (DimensionSlot slot : intervals) {
             valuesByInterval.add(
@@ -125,77 +126,123 @@ public class QueryPlanDataService {
         return out;
     }
 
+    /** 横轴=大类资产，系列=季度（asset_class_allocation）。 */
     public ChartSeriesData buildAllocationChart(QueryPlan plan, String fundCode) {
-        QueryPlanRequired.requireChartCategories(plan, "allocation");
-        List<String> categories = new ArrayList<>();
-        List<List<Double>> stock = new ArrayList<>();
-        List<List<Double>> bond = new ArrayList<>();
-        List<List<Double>> cash = new ArrayList<>();
-
-        for (DimensionSlot slot : plan.dimensions()) {
-            if (slot.role() != DimensionSlotRole.CATEGORY || slot.condition() == null) {
-                continue;
-            }
-            String quarter = slot.condition().quarter();
-            if (quarter == null) {
-                quarter = slot.label();
-            }
-            categories.add(quarter);
-            double[] pct = dataClient.fetchAllocationPercents(fundCode, quarter);
-            stock.add(List.of(pct[0]));
-            bond.add(List.of(pct[1]));
-            cash.add(List.of(pct[2]));
+        if (plan.writeBack() == null || plan.writeBack().categoryLabels().isEmpty()) {
+            throw emptyChart(plan, "asset_class_allocation");
         }
-        if (categories.isEmpty() && plan.writeBack() != null) {
-            categories = new ArrayList<>(plan.writeBack().categoryLabels());
-            for (String q : categories) {
-                double[] pct = dataClient.fetchAllocationPercents(fundCode, q);
-                stock.add(List.of(pct[0]));
-                bond.add(List.of(pct[1]));
-                cash.add(List.of(pct[2]));
-            }
+        List<String> categories = plan.writeBack().categoryLabels();
+        List<String> seriesNames = plan.chartSeriesNames();
+        if (seriesNames == null || seriesNames.isEmpty()) {
+            throw emptyChart(plan, "asset_class_allocation");
         }
-        if (categories.isEmpty()) {
-            throw emptyChart(plan, "allocation");
+        List<List<Double>> seriesValues = new ArrayList<>();
+        for (String quarter : seriesNames) {
+            seriesValues.add(fetchAllocationRow(plan.taskId(), fundCode, quarter, categories));
         }
-        return new ChartSeriesData(
-                categories,
-                QueryPlanRequired.allocationSeriesNames(),
-                List.of(flattenSeries(stock), flattenSeries(bond), flattenSeries(cash)));
+        return new ChartSeriesData(categories, seriesNames, seriesValues);
     }
 
-    public ChartSeriesData buildNavChart(
-            QueryPlan plan, String fundCode, String benchmarkName) {
-        QueryPlanRequired.requireChartCategories(plan, "nav");
-        List<String> categories = new ArrayList<>();
-        List<Double> fundSeries = new ArrayList<>();
-        List<Double> benchSeries = new ArrayList<>();
+    private List<Double> fetchAllocationRow(
+            String taskId, String fundCode, String quarter, List<String> assetClasses) {
+        double[] raw = new double[assetClasses.size()];
+        double sum = 0;
+        for (int i = 0; i < assetClasses.size(); i++) {
+            raw[i] =
+                    dataClient.fetchAssetClassAllocationPct(
+                            fundCode, quarter, assetClasses.get(i));
+            sum += raw[i];
+        }
+        if (sum <= 0) {
+            throw new RefreshException(
+                    FailureStage.QUERY_PLAN_BUILD,
+                    "ALLOCATION_DATA_EMPTY",
+                    "资产配置占比合计为 0: quarter=" + quarter,
+                    taskId,
+                    null);
+        }
+        List<Double> row = new ArrayList<>();
+        if (sum >= 99.0 && sum <= 101.0) {
+            for (double v : raw) {
+                row.add(round1(v));
+            }
+            return row;
+        }
+        for (double v : raw) {
+            row.add(round1(v * 100.0 / sum));
+        }
+        return row;
+    }
 
-        for (DimensionSlot slot : plan.dimensions()) {
-            if (slot.role() != DimensionSlotRole.CATEGORY || slot.condition() == null) {
-                continue;
-            }
-            String month = slot.condition().month();
-            if (month == null) {
-                month = slot.label();
-            }
-            categories.add(month);
-            fundSeries.add(dataClient.fetchCumulativeReturnPct(fundCode, month, false));
-            benchSeries.add(dataClient.fetchCumulativeReturnPct(fundCode, month, true));
+    private static double round1(double v) {
+        return Math.round(v * 10.0) / 10.0;
+    }
+
+    public ChartSeriesData buildNavChart(QueryPlan plan, String fundCode) {
+        if (plan.chartSeries() == null || plan.chartSeries().isEmpty()) {
+            throw new RefreshException(
+                    FailureStage.QUERY_PLAN_BUILD,
+                    "NAV_CHART_SERIES_MISSING",
+                    "nav 图表 QueryPlan 缺少 chartSeries（请使用 nav_line_series）",
+                    plan.taskId(),
+                    null);
         }
-        if (categories.isEmpty() && plan.writeBack() != null) {
-            categories = new ArrayList<>(plan.writeBack().categoryLabels());
-            for (String m : categories) {
-                fundSeries.add(dataClient.fetchCumulativeReturnPct(fundCode, m, false));
-                benchSeries.add(dataClient.fetchCumulativeReturnPct(fundCode, m, true));
-            }
+        return buildNavChartFromSeries(plan, fundCode);
+    }
+
+    private ChartSeriesData buildNavChartFromSeries(QueryPlan plan, String fundCode) {
+        NavChartTimeRange range = plan.navTimeRange();
+        if (range == null) {
+            throw new RefreshException(
+                    FailureStage.QUERY_PLAN_BUILD,
+                    "NAV_TIME_RANGE_MISSING",
+                    "nav 图表 QueryPlan 缺少 navTimeRange，无法批量取数",
+                    plan.taskId(),
+                    null);
         }
+        List<String> categories = navAxisLabels(plan, range);
         if (categories.isEmpty()) {
             throw emptyChart(plan, "nav");
         }
-        String bench = benchmarkName == null || benchmarkName.isBlank() ? "业绩基准" : benchmarkName;
-        return new ChartSeriesData(
-                categories, List.of("本基金", bench), List.of(fundSeries, benchSeries));
+        List<String> seriesNames = new ArrayList<>();
+        List<List<Double>> seriesValues = new ArrayList<>();
+        for (ChartSeriesSlot series : plan.chartSeries()) {
+            seriesNames.add(series.label());
+            NavSeriesPoints batch = fetchNavSeriesBatch(fundCode, series, range);
+            List<Double> row = new ArrayList<>();
+            for (String label : categories) {
+                row.add(batch.require(label, plan.taskId(), series.label()));
+            }
+            seriesValues.add(row);
+        }
+        return new ChartSeriesData(categories, seriesNames, seriesValues);
+    }
+
+    private NavSeriesPoints fetchNavSeriesBatch(
+            String fundCode, ChartSeriesSlot series, NavChartTimeRange range) {
+        if (series.role() == ChartSeriesRole.FUND) {
+            return dataClient.fetchFundNavReturnsInRange(fundCode, range);
+        }
+        return dataClient.fetchBenchmarkNavReturnsInRange(
+                fundCode, series.queryKey(), range);
+    }
+
+    private static List<String> navAxisLabels(QueryPlan plan, NavChartTimeRange range) {
+        if (!range.axisLabels().isEmpty()) {
+            return range.axisLabels();
+        }
+        if (plan.writeBack() != null && !plan.writeBack().categoryLabels().isEmpty()) {
+            return plan.writeBack().categoryLabels();
+        }
+        List<String> labels = new ArrayList<>();
+        for (DimensionSlot slot : plan.dimensions()) {
+            if (slot.role() == DimensionSlotRole.CATEGORY
+                    && slot.condition() != null
+                    && slot.condition().kind() != QueryConditionKind.DATE_RANGE) {
+                labels.add(slot.label());
+            }
+        }
+        return labels;
     }
 
     private static RefreshException emptyChart(QueryPlan plan, String kind) {
@@ -205,14 +252,6 @@ public class QueryPlanDataService {
                 "QueryPlan 未能组装 " + kind + " 图表 categories",
                 plan.taskId(),
                 null);
-    }
-
-    private static List<Double> flattenSeries(List<List<Double>> perCategory) {
-        List<Double> out = new ArrayList<>();
-        for (List<Double> one : perCategory) {
-            out.addAll(one);
-        }
-        return out;
     }
 
     private static List<List<String>> fitTable(

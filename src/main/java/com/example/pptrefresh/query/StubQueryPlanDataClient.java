@@ -1,32 +1,94 @@
 package com.example.pptrefresh.query;
 
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
+
+import com.example.pptrefresh.time.TradingDayCalendar;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /**
  * 占位：按条件生成可区分的演示数据（同一 fundCode + 区间应稳定）。
- * TODO: 对接真实按区间/季度/月份查询接口。
+ * TODO: 对接真实按区间批量查询接口。
  */
 @Component
 public class StubQueryPlanDataClient implements QueryPlanDataClient {
 
+    private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy-MM");
+
     @Override
-    public double[] fetchAllocationPercents(String fundCode, String quarter) {
-        Random r = new Random(seed(fundCode, "alloc", quarter));
-        double stock = 50 + r.nextDouble(30);
-        double bond = 20 + r.nextDouble(40);
-        double cash = Math.max(2, 100 - stock - bond);
-        return new double[] {round1(stock), round1(bond), round1(cash)};
+    public double fetchAssetClassAllocationPct(String fundCode, String quarter, String assetClass) {
+        Random r = new Random(seed(fundCode, quarter, assetClass));
+        return 8 + r.nextDouble(25);
     }
 
     @Override
     public double fetchCumulativeReturnPct(String fundCode, String month, boolean benchmark) {
-        Random r = new Random(seed(fundCode, benchmark ? "bench" : "fund", month));
-        double base = benchmark ? r.nextDouble(8) : r.nextDouble(12);
-        return round1(base + r.nextDouble(3));
+        if (benchmark) {
+            return fetchBenchmarkNavReturnPct(fundCode, "contract_benchmark", month);
+        }
+        return fetchFundNavReturnPct(fundCode, month);
+    }
+
+    @Override
+    public double fetchFundNavReturnPct(String fundCode, String timePoint) {
+        Random r = new Random(seed(fundCode, "fund", timePoint));
+        return round1(r.nextDouble(12) + r.nextDouble(3));
+    }
+
+    @Override
+    public double fetchBenchmarkNavReturnPct(
+            String fundCode, String benchmarkKey, String timePoint) {
+        Random r = new Random(seed(fundCode, "bench:" + benchmarkKey, timePoint));
+        return round1(r.nextDouble(8) + r.nextDouble(3));
+    }
+
+    @Override
+    public NavSeriesPoints fetchFundNavReturnsInRange(String fundCode, NavChartTimeRange range) {
+        return NavSeriesPoints.of(generateRangeMap(fundCode, "fund", null, range));
+    }
+
+    @Override
+    public NavSeriesPoints fetchBenchmarkNavReturnsInRange(
+            String fundCode, String benchmarkKey, NavChartTimeRange range) {
+        return NavSeriesPoints.of(
+                generateRangeMap(fundCode, "bench:" + benchmarkKey, benchmarkKey, range));
+    }
+
+    private Map<String, Double> generateRangeMap(
+            String fundCode, String seriesSeed, String benchmarkKey, NavChartTimeRange range) {
+        Map<String, Double> map = new LinkedHashMap<>();
+        if (range.granularity() == NavChartAxisGranularity.DAY) {
+            List<String> days =
+                    range.axisLabels().isEmpty()
+                            ? TradingDayCalendar.labelsBetween(
+                                    range.startDate(), range.endDate())
+                            : range.axisLabels();
+            for (String key : days) {
+                map.put(
+                        key,
+                        benchmarkKey == null
+                                ? fetchFundNavReturnPct(fundCode, key)
+                                : fetchBenchmarkNavReturnPct(fundCode, benchmarkKey, key));
+            }
+        } else {
+            YearMonth start = YearMonth.from(range.startDate());
+            YearMonth end = YearMonth.from(range.endDate());
+            for (YearMonth ym = start; !ym.isAfter(end); ym = ym.plusMonths(1)) {
+                String key = ym.format(MONTH);
+                map.put(
+                        key,
+                        benchmarkKey == null
+                                ? fetchFundNavReturnPct(fundCode, key)
+                                : fetchBenchmarkNavReturnPct(fundCode, benchmarkKey, key));
+            }
+        }
+        return map;
     }
 
     private static long seed(String fundCode, String a, String b) {
@@ -37,24 +99,6 @@ public class StubQueryPlanDataClient implements QueryPlanDataClient {
                         + "|"
                         + (b == null ? "" : b);
         return key.hashCode();
-    }
-
-    private static String dateKey(QueryCondition c) {
-        if (c == null) {
-            return "";
-        }
-        if (StringUtils.hasText(c.quarter())) {
-            return c.quarter();
-        }
-        if (StringUtils.hasText(c.month())) {
-            return c.month();
-        }
-        LocalDate s = c.startDate();
-        LocalDate e = c.endDate();
-        if (s != null && e != null) {
-            return s + ".." + e;
-        }
-        return c.label() == null ? "" : c.label();
     }
 
     private static double round1(double v) {

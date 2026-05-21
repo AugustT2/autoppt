@@ -10,8 +10,6 @@ import com.example.pptrefresh.llm.TaskContextHolder;
 /** 表格/图表取数前校验 QueryPlan 已注入。 */
 public final class QueryPlanRequired {
 
-    private static final List<String> ALLOCATION_SERIES_NAMES = List.of("股票", "债券", "现金及其他");
-
     private QueryPlanRequired() {}
 
     public static QueryPlan fromTaskContext() {
@@ -26,10 +24,6 @@ public final class QueryPlanRequired {
                     null);
         }
         return ctx.queryPlan();
-    }
-
-    public static List<String> allocationSeriesNames() {
-        return ALLOCATION_SERIES_NAMES;
     }
 
     public static void requireChartCategories(QueryPlan plan, String chartKind) {

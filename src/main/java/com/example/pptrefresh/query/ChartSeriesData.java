@@ -1,6 +1,7 @@
 package com.example.pptrefresh.query;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public final class ChartSeriesData {
 
@@ -12,7 +13,8 @@ public final class ChartSeriesData {
             List<String> categories, List<String> seriesNames, List<List<Double>> seriesValues) {
         this.categories = List.copyOf(categories);
         this.seriesNames = List.copyOf(seriesNames);
-        this.seriesValues = seriesValues.stream().map(List::copyOf).toList();
+        this.seriesValues =
+                seriesValues.stream().map(List::copyOf).collect(Collectors.toList());
     }
 
     public List<String> categories() {

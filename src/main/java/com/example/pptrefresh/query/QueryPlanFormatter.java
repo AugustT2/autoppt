@@ -31,6 +31,12 @@ public class QueryPlanFormatter {
             root.put("table", tableSection(plan));
         } else {
             root.put("dimensions", chartDimensions(plan));
+            if (plan.chartSeries() != null && !plan.chartSeries().isEmpty()) {
+                root.put("chartSeries", chartSeriesSection(plan));
+            }
+            if (plan.navTimeRange() != null) {
+                root.put("navTimeRange", navTimeRangeMap(plan.navTimeRange()));
+            }
         }
 
         if (plan.writeBack() != null) {
@@ -99,6 +105,33 @@ public class QueryPlanFormatter {
         if (c.month() != null) {
             m.put("month", c.month());
         }
+        if (c.day() != null) {
+            m.put("day", c.day());
+        }
+        return m;
+    }
+
+    private static List<Map<String, Object>> chartSeriesSection(QueryPlan plan) {
+        List<Map<String, Object>> series = new ArrayList<>();
+        for (ChartSeriesSlot slot : plan.chartSeries()) {
+            Map<String, Object> s = new LinkedHashMap<>();
+            s.put("index", slot.index());
+            s.put("role", slot.role().name());
+            s.put("label", slot.label());
+            if (slot.queryKey() != null) {
+                s.put("queryKey", slot.queryKey());
+            }
+            series.add(s);
+        }
+        return series;
+    }
+
+    private static Map<String, Object> navTimeRangeMap(NavChartTimeRange range) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("startDate", range.startDate().toString());
+        m.put("endDate", range.endDate().toString());
+        m.put("granularity", range.granularity().name());
+        m.put("axisLabels", range.axisLabels());
         return m;
     }
 }

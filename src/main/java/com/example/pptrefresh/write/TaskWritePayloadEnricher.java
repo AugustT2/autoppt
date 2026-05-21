@@ -132,9 +132,7 @@ public class TaskWritePayloadEnricher {
         QueryPlan plan = context.queryPlan();
         ChartSeriesData data;
         if ("nav_chart".equals(context.task().getId())) {
-            data =
-                    queryPlanDataService.buildNavChart(
-                            plan, context.fundCode(), benchmarkName(context));
+            data = queryPlanDataService.buildNavChart(plan, context.fundCode());
         } else {
             data = queryPlanDataService.buildAllocationChart(plan, context.fundCode());
         }
@@ -142,10 +140,6 @@ public class TaskWritePayloadEnricher {
         payload.setCategories(data.categories());
         payload.setSeriesNames(data.seriesNames());
         payload.setSeriesValues(data.seriesValues());
-    }
-
-    private static String benchmarkName(TaskContext context) {
-        return "业绩基准";
     }
 
     private static QueryPlan requireQueryPlan(TaskContext context) {

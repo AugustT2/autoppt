@@ -1,0 +1,14 @@
+# 折线图图例（第 2 条起）→ 内部 benchmarkKey，对接 NavReturnDataProvider
+benchmarks:
+  偏债混合基金指数:
+    id: bond_hybrid_index
+  万得混合债券型二级指数:
+    id: wind_bond_secondary
+  业绩比较基准:
+    id: contract_benchmark
+  业绩基准:
+    id: contract_benchmark
+  沪深300:
+    id: csi300
+  沪深300复合基准:
+    id: csi300_composite

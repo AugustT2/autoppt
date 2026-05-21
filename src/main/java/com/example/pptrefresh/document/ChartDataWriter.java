@@ -109,9 +109,11 @@ public final class ChartDataWriter {
             return;
         }
         CTPlotArea pa = chart.getCTChart().getPlotArea();
+        int target = seriesNames.length;
         for (CTBarChart bc : pa.getBarChartList()) {
-            int s = 0;
-            for (CTBarSer ser : bc.getSerList()) {
+            ensureBarSeriesCount(bc, target);
+            for (int s = 0; s < target; s++) {
+                CTBarSer ser = bc.getSerArray(s);
                 refreshSeriesCaches(
                         ser.getTx(),
                         ser.getCat(),
@@ -120,12 +122,12 @@ public final class ChartDataWriter {
                         seriesNames[s],
                         seriesValues[s],
                         s + 1);
-                s++;
             }
         }
         for (CTLineChart lc : pa.getLineChartList()) {
-            int s = 0;
-            for (CTLineSer ser : lc.getSerList()) {
+            ensureLineSeriesCount(lc, target);
+            for (int s = 0; s < target; s++) {
+                CTLineSer ser = lc.getSerArray(s);
                 refreshSeriesCaches(
                         ser.getTx(),
                         ser.getCat(),
@@ -134,7 +136,80 @@ public final class ChartDataWriter {
                         seriesNames[s],
                         seriesValues[s],
                         s + 1);
-                s++;
+            }
+        }
+    }
+
+    private static void ensureBarSeriesCount(CTBarChart bc, int target) {
+        while (bc.sizeOfSerArray() < target) {
+            CTBarSer proto = bc.sizeOfSerArray() > 0 ? bc.getSerArray(bc.sizeOfSerArray() - 1) : null;
+            CTBarSer ser = bc.addNewSer();
+            int idx = bc.sizeOfSerArray() - 1;
+            ser.addNewIdx().setVal(idx);
+            ser.addNewOrder().setVal(idx);
+            if (proto != null) {
+                if (proto.isSetTx()) {
+                    ser.addNewTx().set(proto.getTx());
+                }
+                if (proto.isSetCat()) {
+                    ser.addNewCat().set(proto.getCat());
+                }
+                if (proto.isSetVal()) {
+                    ser.addNewVal().set(proto.getVal());
+                }
+            } else {
+                ser.addNewTx();
+                ser.addNewCat();
+                ser.addNewVal();
+            }
+        }
+        while (bc.sizeOfSerArray() > target) {
+            bc.removeSer(bc.sizeOfSerArray() - 1);
+        }
+        for (int s = 0; s < bc.sizeOfSerArray(); s++) {
+            CTBarSer ser = bc.getSerArray(s);
+            if (ser.getIdx() == null) {
+                ser.addNewIdx().setVal(s);
+            }
+            if (ser.getOrder() == null) {
+                ser.addNewOrder().setVal(s);
+            }
+        }
+    }
+
+    private static void ensureLineSeriesCount(CTLineChart lc, int target) {
+        while (lc.sizeOfSerArray() < target) {
+            CTLineSer proto = lc.sizeOfSerArray() > 0 ? lc.getSerArray(lc.sizeOfSerArray() - 1) : null;
+            CTLineSer ser = lc.addNewSer();
+            int idx = lc.sizeOfSerArray() - 1;
+            ser.addNewIdx().setVal(idx);
+            ser.addNewOrder().setVal(idx);
+            if (proto != null) {
+                if (proto.isSetTx()) {
+                    ser.addNewTx().set(proto.getTx());
+                }
+                if (proto.isSetCat()) {
+                    ser.addNewCat().set(proto.getCat());
+                }
+                if (proto.isSetVal()) {
+                    ser.addNewVal().set(proto.getVal());
+                }
+            } else {
+                ser.addNewTx();
+                ser.addNewCat();
+                ser.addNewVal();
+            }
+        }
+        while (lc.sizeOfSerArray() > target) {
+            lc.removeSer(lc.sizeOfSerArray() - 1);
+        }
+        for (int s = 0; s < lc.sizeOfSerArray(); s++) {
+            CTLineSer ser = lc.getSerArray(s);
+            if (ser.getIdx() == null) {
+                ser.addNewIdx().setVal(s);
+            }
+            if (ser.getOrder() == null) {
+                ser.addNewOrder().setVal(s);
             }
         }
     }
