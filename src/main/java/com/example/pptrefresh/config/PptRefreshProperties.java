@@ -9,6 +9,8 @@ public class PptRefreshProperties {
     private int slideIndexBase = 0;
     /** 图表写回：cache-only（默认，不重写嵌入 xlsx）| embedded-workbook */
     private String chartWriteMode = "cache-only";
+    /** LLM 固定提示词目录版本，对应 classpath:prompts/{version}/*.md */
+    private String promptsVersion = "v1";
     private final Llm llm = new Llm();
 
     public String getRulesDir() {
@@ -33,6 +35,14 @@ public class PptRefreshProperties {
 
     public void setChartWriteMode(String chartWriteMode) {
         this.chartWriteMode = chartWriteMode;
+    }
+
+    public String getPromptsVersion() {
+        return promptsVersion;
+    }
+
+    public void setPromptsVersion(String promptsVersion) {
+        this.promptsVersion = promptsVersion;
     }
 
     public com.example.pptrefresh.document.ChartWriteMode chartWriteModeEnum() {

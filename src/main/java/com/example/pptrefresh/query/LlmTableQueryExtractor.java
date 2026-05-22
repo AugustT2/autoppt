@@ -1,6 +1,7 @@
 package com.example.pptrefresh.query;
 
 import com.example.pptrefresh.config.PptRefreshProperties;
+import com.example.pptrefresh.llm.PromptCatalog;
 import com.example.pptrefresh.exception.FailureStage;
 import com.example.pptrefresh.exception.RefreshException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,12 +26,16 @@ public class LlmTableQueryExtractor {
     private static final int MAX_MATRIX_CELLS = 500;
 
     private final PptRefreshProperties properties;
+    private final PromptCatalog promptCatalog;
     private final ChatModel chatModel;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public LlmTableQueryExtractor(
-            PptRefreshProperties properties, @Autowired(required = false) ChatModel chatModel) {
+            PptRefreshProperties properties,
+            PromptCatalog promptCatalog,
+            @Autowired(required = false) ChatModel chatModel) {
         this.properties = properties;
+        this.promptCatalog = promptCatalog;
         this.chatModel = chatModel;
     }
 
@@ -51,13 +56,7 @@ public class LlmTableQueryExtractor {
         try {
             ChatResponse response =
                     chatModel.chat(
-                            SystemMessage.from(
-                                    "你是基金 PPT 表格数据刷新助手。只输出一段 JSON，不要 markdown、不要解释。"
-                                            + "禁止输出查询起止日期、行列下标。"
-                                            + "JSON 字段："
-                                            + "intervalLabels（区间标签原文，顺序与模板一致），"
-                                            + "metrics（需刷新的指标名，不要包含纯区间列），"
-                                            + "intervalAxis（可选，ROW 或 COLUMN：ROW=区间在某一列竖排，COLUMN=区间在某一行横排）。"),
+                            SystemMessage.from(promptCatalog.tableQuerySystem()),
                             UserMessage.from(buildUserMessage(matrix, taskIntent, lexicon)));
             return parseResponse(response.aiMessage().text());
         } catch (RefreshException e) {

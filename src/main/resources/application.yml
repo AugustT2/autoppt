@@ -19,6 +19,7 @@ ppt:
     slide-index-base: 0
     # cache-only：只改 chart 缓存/公式，不重写嵌入 xlsx（避免 PowerPoint 修复/打不开）
     chart-write-mode: cache-only
+    prompts-version: v1
     llm:
       enabled: true
 

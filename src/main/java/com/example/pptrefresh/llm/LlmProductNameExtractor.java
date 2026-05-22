@@ -19,12 +19,15 @@ public class LlmProductNameExtractor {
     private static final int MAX_CHARS = 6000;
 
     private final PptRefreshProperties properties;
+    private final PromptCatalog promptCatalog;
     private final ChatModel chatModel;
 
     public LlmProductNameExtractor(
             PptRefreshProperties properties,
+            PromptCatalog promptCatalog,
             @Autowired(required = false) ChatModel chatModel) {
         this.properties = properties;
+        this.promptCatalog = promptCatalog;
         this.chatModel = chatModel;
     }
 
@@ -48,7 +51,7 @@ public class LlmProductNameExtractor {
         try {
             ChatResponse response =
                     chatModel.chat(
-                            SystemMessage.from("你只输出一行中文或中英混合的短名称，不要其它任何字符。"),
+                            SystemMessage.from(promptCatalog.productNameSystem()),
                             UserMessage.from(user));
             String content = response.aiMessage().text();
             String line = content == null ? "" : content.trim().split("\\R", 2)[0].trim();
