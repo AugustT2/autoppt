@@ -22,7 +22,11 @@ tasks:
     type: table
     slideIndex: 0
     tableOrdinal: 1
-    intent: "填充收益率排名表，行列数与模板一致"
+    intent: "刷新本页指标矩阵：依据矩阵识别全部区间标签与指标行标题，仅更新数据格；标签须为矩阵原文；行列结构与模板一致"
+    dimensionPolicy:
+      policyType: table_interval_labels
+      lexicon: /rules/lexicon/fund_performance_rows.yaml
+      metricsLexicon: /rules/lexicon/table_metrics.yaml
 
   - id: sample_allocation_chart
     type: chart

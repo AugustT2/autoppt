@@ -30,10 +30,10 @@ tasks:
     type: table
     slideIndex: 0
     tableOrdinal: 1
-    intent: "更新「收益率排名（同类偏股混合）」矩阵表全部单元格：横轴区间列为任职以来、过去一年、过去两年、过去三年；纵轴指标行为收益率、业绩排名、偏债混合基金指数、风险回报、最大回撤；行列结构与模板一致"
+    intent: "刷新本页业绩指标矩阵：依据下方矩阵识别全部区间标签（时间维度）与全部指标行标题（收益/排名/基准/风险等），仅更新指标与区间交叉的数据格；intervalLabels、metrics 必须为矩阵中出现的原文，具体名称因产品模板而异，勿臆造或改用词表同义词；保持表头、角落标签与行列结构不变"
     dimensionPolicy:
       policyType: table_interval_labels
-      # 表格布局由 Java 读全表 + LLM 推断；区间/指标各一个词表
+      # 区间/指标具体文案以 PPT 矩阵为准；可识别标签见 lexicon / metricsLexicon
       lexicon: /rules/lexicon/fund_performance_rows.yaml
       metricsLexicon: /rules/lexicon/table_metrics.yaml
 

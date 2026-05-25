@@ -33,7 +33,7 @@ public class TableQueryInferenceService {
                 matrix.isEmpty() ? 0 : matrix.get(0).size());
         try {
             TableQueryIntent rawIntent =
-                    llmExtractor.infer(matrix, task.getIntent(), lexicon);
+                    llmExtractor.infer(matrix, task.getIntent(), task.getHints(), lexicon);
             log.info(
                     "LLM 表格意图 task={} intervalLabels={} metrics={} intervalAxis={}",
                     task.getId(),

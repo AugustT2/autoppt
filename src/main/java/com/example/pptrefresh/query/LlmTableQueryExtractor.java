@@ -49,6 +49,14 @@ public class LlmTableQueryExtractor {
 
     public TableQueryIntent infer(
             List<List<String>> matrix, String taskIntent, IntervalLexicon lexicon) {
+        return infer(matrix, taskIntent, null, lexicon);
+    }
+
+    public TableQueryIntent infer(
+            List<List<String>> matrix,
+            String taskIntent,
+            String taskHints,
+            IntervalLexicon lexicon) {
         if (!isAvailable()) {
             throw new RefreshException(
                     FailureStage.DIMENSION_EXTRACT,
@@ -61,7 +69,7 @@ public class LlmTableQueryExtractor {
             ChatResponse response =
                     chatModel.chat(
                             SystemMessage.from(promptCatalog.tableQuerySystem()),
-                            UserMessage.from(buildUserMessage(matrix, taskIntent, lexicon)));
+                            UserMessage.from(buildUserMessage(matrix, taskIntent, taskHints, lexicon)));
             String raw = response.aiMessage().text();
             log.debug("表格查询 LLM 原始响应: {}", raw);
             TableQueryIntent intent = parseResponse(raw);
@@ -86,10 +94,16 @@ public class LlmTableQueryExtractor {
     }
 
     private String buildUserMessage(
-            List<List<String>> matrix, String taskIntent, IntervalLexicon lexicon) {
+            List<List<String>> matrix,
+            String taskIntent,
+            String taskHints,
+            IntervalLexicon lexicon) {
         List<List<String>> trimmed = trimMatrix(matrix);
         StringBuilder sb = new StringBuilder();
         sb.append("任务：").append(taskIntent == null ? "刷新表格数据" : taskIntent).append('\n');
+        if (taskHints != null && !taskHints.isBlank()) {
+            sb.append("补充：").append(taskHints.trim()).append('\n');
+        }
         sb.append("区间语义词表（仅帮助理解含义；intervalLabels 仍须从矩阵逐字复制，优先用表中已有文案）：")
                 .append(String.join("、", lexicon.labels().keySet()))
                 .append('\n');
