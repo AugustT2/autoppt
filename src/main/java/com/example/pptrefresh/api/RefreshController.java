@@ -4,6 +4,7 @@ import com.example.pptrefresh.orchestration.RefreshJobRequest;
 import com.example.pptrefresh.orchestration.RefreshJobResult;
 import com.example.pptrefresh.orchestration.RefreshOrchestrator;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,10 +21,10 @@ public class RefreshController {
         this.orchestrator = orchestrator;
     }
 
-    @PostMapping("/refresh")
+    @PostMapping(value = "/refresh", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<RefreshJobResult> refresh(@Valid @RequestBody RefreshJobRequest request) {
         RefreshJobResult result = orchestrator.run(request);
-        if (result.success()) {
+        if (result.isSuccess()) {
             return ResponseEntity.ok(result);
         }
         return ResponseEntity.status(422).body(result);

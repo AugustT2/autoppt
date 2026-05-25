@@ -1,14 +1,55 @@
-# PPT 表头文案 → 内部 metricId + 取数 provider（对接真实 API 时替换对应 Provider 实现）
+# PPT 表行标题（指标）→ 内部 metricId + 取数 provider
+# 展示名须与模板单元格原文一致；下列同义行可映射到同一 id
 metrics:
+  # --- 收益 ---
+  累计收益:
+    id: return_pct
+    provider: performance
   收益率:
     id: return_pct
+    provider: performance
+  年化收益:
+    id: return_annualized
+    provider: performance
+  年化收益率:
+    id: return_annualized
+    provider: performance
+  # --- 排名 ---
+  收益排名:
+    id: peer_rank
     provider: performance
   业绩排名:
     id: peer_rank
     provider: performance
+  收益率排名:
+    id: peer_rank
+    provider: performance
+  收益排名（同类偏股混合）:
+    id: peer_rank
+    provider: performance
+  # --- 基准 / 指数 ---
+  二级债基指数（年化）:
+    id: bench_return
+    provider: index
+  二级债基指数(年化):
+    id: bench_return
+    provider: index
+  二级债基指数:
+    id: bench_return
+    provider: index
   偏债混合基金指数:
     id: bench_return
     provider: index
+  万得混合债券型二级指数:
+    id: bench_return
+    provider: index
+  万得混合债券型二级指数(年化):
+    id: bench_return
+    provider: index
+  # --- 风险 ---
+  夏普比率:
+    id: sharpe_ratio
+    provider: risk
   风险回报:
     id: risk_return
     provider: risk

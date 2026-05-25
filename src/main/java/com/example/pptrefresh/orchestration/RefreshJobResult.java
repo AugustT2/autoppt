@@ -1,5 +1,7 @@
 package com.example.pptrefresh.orchestration;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public final class RefreshJobResult {
 
     private final boolean success;
@@ -21,23 +23,28 @@ public final class RefreshJobResult {
         this.message = message;
     }
 
-    public boolean success() {
+    @JsonProperty("success")
+    public boolean isSuccess() {
         return success;
     }
 
-    public String jobId() {
+    @JsonProperty("jobId")
+    public String getJobId() {
         return jobId;
     }
 
-    public String outputPptxPath() {
+    @JsonProperty("outputPptxPath")
+    public String getOutputPptxPath() {
         return outputPptxPath;
     }
 
-    public String failedJsonPath() {
+    @JsonProperty("failedJsonPath")
+    public String getFailedJsonPath() {
         return failedJsonPath;
     }
 
-    public String message() {
+    @JsonProperty("message")
+    public String getMessage() {
         return message;
     }
 }

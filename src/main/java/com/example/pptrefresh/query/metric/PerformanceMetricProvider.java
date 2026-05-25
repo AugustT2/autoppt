@@ -27,7 +27,8 @@ public class PerformanceMetricProvider implements MetricDataProvider {
             Random r = new Random(StubMetricValues.seed(fundCode, metricId, interval));
             String value =
                     switch (metricId) {
-                        case "return_pct" -> StubMetricValues.formatReturnPct(r);
+                        case "return_pct", "return_annualized" ->
+                                StubMetricValues.formatReturnPct(r);
                         case "peer_rank" -> StubMetricValues.formatPeerRank(r);
                         default -> "";
                     };

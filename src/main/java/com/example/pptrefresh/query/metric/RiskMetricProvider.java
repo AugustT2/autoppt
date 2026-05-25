@@ -29,6 +29,7 @@ public class RiskMetricProvider implements MetricDataProvider {
                     switch (metricId) {
                         case "risk_return" -> StubMetricValues.formatPercentile(r);
                         case "max_drawdown" -> StubMetricValues.formatDrawdown(r);
+                        case "sharpe_ratio" -> StubMetricValues.formatSharpe(r);
                         default -> "";
                     };
             out.put(metricId, value);

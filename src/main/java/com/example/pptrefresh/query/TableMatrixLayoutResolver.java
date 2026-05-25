@@ -23,7 +23,12 @@ public final class TableMatrixLayoutResolver {
 
     public static TableAnalysis resolve(
             List<List<String>> matrix, TableQueryIntent intent, String source) {
-        AxisDetection det = resolveAxisFromLabelPositions(matrix, intent.intervalLabels());
+        return resolve(matrix, intent, source, null);
+    }
+
+    public static TableAnalysis resolve(
+            List<List<String>> matrix, TableQueryIntent intent, String source, String taskId) {
+        AxisDetection det = resolveAxisFromLabelPositions(matrix, intent.intervalLabels(), taskId);
         intent.intervalAxis()
                 .filter(llm -> llm != det.axis())
                 .ifPresent(
@@ -61,12 +66,17 @@ public final class TableMatrixLayoutResolver {
      */
     static AxisDetection resolveAxisFromLabelPositions(
             List<List<String>> matrix, List<String> intervalLabels) {
+        return resolveAxisFromLabelPositions(matrix, intervalLabels, null);
+    }
+
+    static AxisDetection resolveAxisFromLabelPositions(
+            List<List<String>> matrix, List<String> intervalLabels, String taskId) {
         if (intervalLabels == null || intervalLabels.isEmpty()) {
             throw new RefreshException(
                     FailureStage.DIMENSION_EXTRACT,
                     "INTERVAL_LABELS_EMPTY",
                     "区间标签为空",
-                    null,
+                    taskId,
                     null);
         }
         List<CellPos> positions = new ArrayList<>(intervalLabels.size());
@@ -74,13 +84,19 @@ public final class TableMatrixLayoutResolver {
             positions.add(
                     findFirst(matrix, label)
                             .orElseThrow(
-                                    () ->
-                                            new RefreshException(
-                                                    FailureStage.DIMENSION_EXTRACT,
-                                                    "INTERVAL_LABEL_NOT_IN_MATRIX",
-                                                    "区间标签不在表格中: " + label,
-                                                    null,
-                                                    null)));
+                                    () -> {
+                                        log.warn(
+                                                "区间标签未命中矩阵 task={} label={} matrixPreview={}",
+                                                taskId,
+                                                label,
+                                                matrixPreview(matrix));
+                                        return new RefreshException(
+                                                FailureStage.DIMENSION_EXTRACT,
+                                                "INTERVAL_LABEL_NOT_IN_MATRIX",
+                                                "区间标签不在表格中: " + label,
+                                                taskId,
+                                                null);
+                                    }));
         }
         Set<Integer> rows = new HashSet<>();
         Set<Integer> cols = new HashSet<>();
@@ -108,8 +124,24 @@ public final class TableMatrixLayoutResolver {
                 FailureStage.DIMENSION_EXTRACT,
                 "INTERVAL_LAYOUT_MISMATCH",
                 "区间标签未落在同一行或同一列，无法确定 intervalAxis",
-                null,
+                taskId,
                 null);
+    }
+
+    private static String matrixPreview(List<List<String>> matrix) {
+        int maxRows = Math.min(4, matrix.size());
+        StringBuilder sb = new StringBuilder("[");
+        for (int r = 0; r < maxRows; r++) {
+            if (r > 0) {
+                sb.append("; ");
+            }
+            sb.append(matrix.get(r));
+        }
+        if (matrix.size() > maxRows) {
+            sb.append("…");
+        }
+        sb.append(']');
+        return sb.toString();
     }
 
     private static Optional<CellPos> findFirst(List<List<String>> matrix, String label) {

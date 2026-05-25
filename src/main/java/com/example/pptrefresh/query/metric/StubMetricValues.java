@@ -42,6 +42,11 @@ final class StubMetricValues {
         return String.format("-%.1f%%", dd);
     }
 
+    static String formatSharpe(Random r) {
+        double s = 0.8 + r.nextDouble() * 1.2;
+        return String.format("%.2f", s);
+    }
+
     private static String dateKey(QueryCondition c) {
         if (c == null) {
             return "";

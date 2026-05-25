@@ -96,6 +96,7 @@ public class QueryPlanService {
                         ? "/rules/lexicon/fund_performance_rows.yaml"
                         : policy.getLexicon();
         IntervalLexicon lexicon = loadLexicon(lexiconPath);
+        log.info("构建表格 QueryPlan task={} lexicon={}", task.getId(), lexiconPath);
         TableAnalysis analysis = tableQueryInferenceService.analyze(task, table, lexicon);
         DimensionSlotRole dataRole =
                 analysis.intervalAxis() == TableLabelAxis.COLUMN

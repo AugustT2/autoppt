@@ -26,10 +26,28 @@ public class TableQueryInferenceService {
 
     public TableAnalysis analyze(TaskDefinition task, XSLFTable table, IntervalLexicon lexicon) {
         List<List<String>> matrix = TableMatrixReader.read(table);
+        log.info(
+                "表格维度识别开始 task={} rows={} cols={}",
+                task.getId(),
+                matrix.size(),
+                matrix.isEmpty() ? 0 : matrix.get(0).size());
         try {
-            TableQueryIntent intent =
+            TableQueryIntent rawIntent =
                     llmExtractor.infer(matrix, task.getIntent(), lexicon);
-            TableAnalysis analysis = TableMatrixLayoutResolver.resolve(matrix, intent, "llm");
+            log.info(
+                    "LLM 表格意图 task={} intervalLabels={} metrics={} intervalAxis={}",
+                    task.getId(),
+                    rawIntent.intervalLabels(),
+                    rawIntent.metrics(),
+                    rawIntent.intervalAxis().orElse(null));
+            List<String> alignedLabels =
+                    IntervalLabelAligner.alignToMatrix(
+                            rawIntent.intervalLabels(), matrix, lexicon);
+            TableQueryIntent intent =
+                    new TableQueryIntent(
+                            alignedLabels, rawIntent.metrics(), rawIntent.intervalAxis());
+            TableAnalysis analysis =
+                    TableMatrixLayoutResolver.resolve(matrix, intent, "llm", task.getId());
             validate(analysis, matrix, lexicon, task.getId());
             log.info(
                     "表格查询分析 task={} intervals={} metrics={} axis={}",
@@ -39,8 +57,15 @@ public class TableQueryInferenceService {
                     analysis.intervalAxis());
             return analysis;
         } catch (RefreshException e) {
+            log.warn(
+                    "表格维度识别失败 task={} stage={} code={} msg={}",
+                    task.getId(),
+                    e.getStage(),
+                    e.getErrorCode(),
+                    e.getMessage());
             throw e;
         } catch (Exception e) {
+            log.warn("表格维度识别异常 task={}", task.getId(), e);
             throw new RefreshException(
                     FailureStage.DIMENSION_EXTRACT,
                     "TABLE_QUERY_INFERENCE_FAILED",

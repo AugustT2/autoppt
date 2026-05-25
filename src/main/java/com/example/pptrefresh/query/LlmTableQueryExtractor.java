@@ -9,6 +9,8 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
  */
 @Component
 public class LlmTableQueryExtractor {
+
+    private static final Logger log = LoggerFactory.getLogger(LlmTableQueryExtractor.class);
 
     private static final int MAX_MATRIX_CELLS = 500;
 
@@ -58,10 +62,20 @@ public class LlmTableQueryExtractor {
                     chatModel.chat(
                             SystemMessage.from(promptCatalog.tableQuerySystem()),
                             UserMessage.from(buildUserMessage(matrix, taskIntent, lexicon)));
-            return parseResponse(response.aiMessage().text());
+            String raw = response.aiMessage().text();
+            log.debug("表格查询 LLM 原始响应: {}", raw);
+            TableQueryIntent intent = parseResponse(raw);
+            log.info(
+                    "表格查询 LLM 解析结果 intervalLabels={} metrics={} axis={}",
+                    intent.intervalLabels(),
+                    intent.metrics(),
+                    intent.intervalAxis().orElse(null));
+            return intent;
         } catch (RefreshException e) {
+            log.warn("表格查询 LLM 业务失败: {} {}", e.getErrorCode(), e.getMessage());
             throw e;
         } catch (Exception e) {
+            log.warn("表格查询 LLM 调用异常", e);
             throw new RefreshException(
                     FailureStage.DIMENSION_EXTRACT,
                     "TABLE_QUERY_LLM_FAILED",
@@ -76,7 +90,7 @@ public class LlmTableQueryExtractor {
         List<List<String>> trimmed = trimMatrix(matrix);
         StringBuilder sb = new StringBuilder();
         sb.append("任务：").append(taskIntent == null ? "刷新表格数据" : taskIntent).append('\n');
-        sb.append("区间标签词表（intervalLabels 须为表中原文且能匹配下列之一）：")
+        sb.append("区间语义词表（仅帮助理解含义；intervalLabels 仍须从矩阵逐字复制，优先用表中已有文案）：")
                 .append(String.join("、", lexicon.labels().keySet()))
                 .append('\n');
         sb.append("表格矩阵（行优先）：\n");

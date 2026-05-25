@@ -138,6 +138,7 @@ public class RefreshOrchestrator {
                         reporting.asOfDate(),
                         reporting.asOfQuarter());
                 for (TaskDefinition task : rules.getTasks()) {
+                    log.info("开始任务 task={} type={}", task.getId(), task.getType());
                     ResolvedTarget target =
                             targetResolver.resolve(ppt, properties.getSlideIndexBase(), task);
                     SlideStructure structure = target.structure();
@@ -146,8 +147,8 @@ public class RefreshOrchestrator {
                         queryPlan =
                                 queryPlanService.build(
                                         task, reporting, target, resolved.displayName());
-                        log.debug(
-                                "QueryPlan task={} dimensions={}",
+                        log.info(
+                                "QueryPlan 已构建 task={} dimensions={}",
                                 task.getId(),
                                 queryPlan.dimensions().size());
                     }
@@ -209,7 +210,18 @@ public class RefreshOrchestrator {
                             null,
                             e);
         }
-        log.warn("Refresh job {} failed at {}: {}", jobId, refresh.getStage(), refresh.getMessage());
+        log.warn(
+                "Refresh job {} failed stage={} errorCode={} taskId={} message={}",
+                jobId,
+                refresh.getStage(),
+                refresh.getErrorCode(),
+                refresh.getTaskId(),
+                refresh.getMessage());
+        if (refresh.getCause() != null) {
+            log.warn("Refresh job {} failure cause", jobId, refresh.getCause());
+        } else if (e != refresh) {
+            log.warn("Refresh job {} failure exception", jobId, e);
+        }
         try {
             if (Files.exists(output)) {
                 Files.delete(output);

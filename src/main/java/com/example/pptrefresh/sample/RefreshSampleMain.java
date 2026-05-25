@@ -61,12 +61,12 @@ public final class RefreshSampleMain {
             request.setOutputPptxPath(output.toAbsolutePath().toString());
 
             RefreshJobResult result = orchestrator.run(request);
-            if (result.success()) {
-                System.out.println("刷新成功: " + result.outputPptxPath());
+            if (result.isSuccess()) {
+                System.out.println("刷新成功: " + result.getOutputPptxPath());
             } else {
-                System.err.println("刷新失败: " + result.message());
-                if (result.failedJsonPath() != null) {
-                    System.err.println("报告: " + result.failedJsonPath());
+                System.err.println("刷新失败: " + result.getMessage());
+                if (result.getFailedJsonPath() != null) {
+                    System.err.println("报告: " + result.getFailedJsonPath());
                 }
                 System.exit(1);
             }

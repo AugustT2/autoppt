@@ -1,0 +1,19 @@
+{
+  "version" : "1",
+  "failedAt" : "2026-05-25T00:40:42.940667700Z",
+  "traceId" : "1c1bbe45-317f-4400-b571-85dceb6e5d3c",
+  "jobId" : "1c1bbe45-317f-4400-b571-85dceb6e5d3c",
+  "deckType" : "偏债混-M1",
+  "sourceFile" : "d:\\IdeaProjects\\java_ppt\\autoppt\\samples\\20260430-偏债混-M1.pptx",
+  "expectedOutputFile" : "d:\\IdeaProjects\\java_ppt\\autoppt\\samples\\20260430-偏债混-M1-refreshed.pptx",
+  "productName" : "蓝海稳健增长混合A",
+  "fundCode" : "001234",
+  "stage" : "DIMENSION_EXTRACT",
+  "taskId" : null,
+  "slideIndex" : null,
+  "errorCode" : "INTERVAL_LABEL_NOT_IN_MATRIX",
+  "message" : "区间标签不在表格中: 过去一年",
+  "cause" : null,
+  "toolName" : null,
+  "llmRequestId" : null
+}
